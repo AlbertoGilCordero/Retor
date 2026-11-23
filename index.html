@@ -15,11 +15,18 @@ body{margin:0;color:var(--tx);font:18px/1.45 var(--body);padding-bottom:92px;min
   background:radial-gradient(1200px 700px at 78% -8%,rgba(120,84,46,.22),transparent 62%),radial-gradient(900px 600px at 0% 100%,rgba(140,20,22,.16),transparent 60%),var(--bg)}
 body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.5;mix-blend-mode:overlay;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .6 0 0 0 0 .5 0 0 0 0 .4 0 0 0 .5 0'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)'/%3E%3C/svg%3E")}
 body::after{content:"";position:fixed;left:22px;top:0;bottom:0;width:1px;background:linear-gradient(var(--acc),rgba(181,25,28,.15) 55%,transparent);z-index:0;pointer-events:none}
-.art-plaza{position:fixed;top:0;right:0;width:min(62vw,760px);height:min(60vh,520px);background:url(art/plaza.jpg) right top/cover no-repeat;opacity:.34;filter:sepia(.25) contrast(1.05);z-index:0;pointer-events:none;-webkit-mask-image:radial-gradient(ellipse at 85% 10%,#000 12%,transparent 70%);mask-image:radial-gradient(ellipse at 85% 10%,#000 12%,transparent 70%)}
-.art-orador{display:none;position:fixed;left:0;bottom:0;top:84px;width:330px;background:url(art/orador.jpg) left bottom/cover no-repeat;z-index:0;pointer-events:none;-webkit-mask-image:linear-gradient(90deg,#000 62%,transparent),linear-gradient(#000,#000);-webkit-mask-composite:source-in;mask-image:linear-gradient(90deg,#000 62%,transparent)}
+.art-plaza{position:fixed;top:0;right:0;width:min(70vw,860px);height:min(46vh,350px);background:url(art/escena-tecnicas.jpg) right top/cover no-repeat;opacity:.75;z-index:0;pointer-events:none;-webkit-mask-image:linear-gradient(90deg,transparent,#000 45%),linear-gradient(#000 55%,transparent);-webkit-mask-composite:source-in;mask-image:linear-gradient(90deg,transparent,#000 45%),linear-gradient(#000 55%,transparent);mask-composite:intersect}
+body[data-v=profile] .art-plaza{background-image:url(art/plaza.jpg);width:min(62vw,620px);height:min(60vh,520px);opacity:.4}
+body[data-v=train] .art-plaza,body[data-v=run] .art-plaza{background-image:url(art/orador-entrenar.jpg);background-position:right top;width:min(78vw,600px);height:min(64vw,500px);opacity:.3;-webkit-mask-image:radial-gradient(ellipse at 62% 46%,#000 42%,transparent 74%);mask-image:radial-gradient(ellipse at 62% 46%,#000 42%,transparent 74%);-webkit-mask-composite:source-over;mask-composite:add}
+.art-orador{display:none;position:fixed;left:0;bottom:0;top:70px;width:340px;background:url(art/orador-tecnicas.jpg) left top/cover no-repeat;z-index:0;pointer-events:none;-webkit-mask-image:linear-gradient(90deg,#000 60%,transparent),linear-gradient(#000 80%,transparent);-webkit-mask-composite:source-in;mask-image:linear-gradient(90deg,#000 60%,transparent),linear-gradient(#000 80%,transparent);mask-composite:intersect}
+body[data-v=profile] .art-orador{background-image:url(art/orador-perfil.jpg);width:370px}
 main{position:relative;z-index:1;max-width:820px;margin:0 auto;padding:22px 20px 20px 34px}
-@media(min-width:1180px){.art-orador{display:block}main{max-width:900px;margin-left:340px}}
-@media(min-width:1500px){main{margin-left:max(340px,calc(50vw - 380px))}}
+@media(min-width:1180px){.art-orador{display:block}main{max-width:900px;margin-left:350px}
+  body[data-v=profile] main{margin-left:385px}
+  body[data-v=train] .art-orador,body[data-v=run] .art-orador{display:none}
+  body[data-v=train] main,body[data-v=run] main{margin-left:70px;max-width:860px}
+  body[data-v=train] .art-plaza,body[data-v=run] .art-plaza{opacity:.95;width:min(46vw,620px);height:min(38vw,515px);top:56px}}
+@media(min-width:1500px){main{margin-left:max(350px,calc(50vw - 380px))}body[data-v=train] main,body[data-v=run] main{margin-left:max(70px,calc(50vw - 700px))}}
 h1{font:500 clamp(42px,7vw,68px)/1.02 var(--serif);margin:14px 0 14px;letter-spacing:-.005em;padding-bottom:12px;background:linear-gradient(90deg,var(--acc),transparent) left bottom/150px 1px no-repeat}
 h1+p.mut,h1+p{font:italic 400 21px/1.35 var(--serif);color:var(--tx);opacity:.92}
 h2{font:500 32px/1.15 var(--serif);margin:34px 0 10px;padding-bottom:8px;border-bottom:1px solid rgba(201,165,106,.35)}
@@ -116,7 +123,7 @@ mark.h{background:rgba(217,164,65,.3)}
 details summary{cursor:pointer;color:var(--mut);font-style:italic}
 </style>
 </head>
-<body>
+<body data-v="train">
 <div class="art-plaza"></div><div class="art-orador"></div>
 <main>
   <div class="brand"><b>RÉTOR</b><span id="brandsub">entrenador de comunicación</span></div>
@@ -911,6 +918,7 @@ function renderProfile(){
   let armed=false; $('#b-wipe').onclick=e=>{ if(!armed){ armed=true; e.target.textContent='Pulsa otra vez para confirmar'; return; } mem={sessions:[],settings:mem.settings,notes:'',brain:mem.brain,kb:mem.kb,drills:mem.drills,srs:mem.srs}; DB.save(); renderProfile(); };
 }
 function show(v){
+  document.body.dataset.v=v;
   ['train','run','report','history','profile','kb'].forEach(k=>$('#v-'+k).classList.toggle('hide',k!==v));
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===v||(b.dataset.v==='train'&&(v==='run'||v==='report'))));
   if(v==='history') renderHistory(); if(v==='profile') renderProfile(); if(v==='kb') renderKB(); if(v==='train') refreshTrain();
