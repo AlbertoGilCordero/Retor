@@ -292,9 +292,52 @@ const KEY='retor.v1';
 let mem={sessions:[],settings:{},notes:''};
 const DB={
   load(){ try{ const d=JSON.parse(localStorage.getItem(KEY)); if(d&&Array.isArray(d.sessions)) mem=d; }catch(e){} return mem; },
-  save(){ try{ localStorage.setItem(KEY,JSON.stringify(mem)); }catch(e){ toast('No se pudo guardar en este navegador'); } }
+  save(local){ if(!local) mem.at=Date.now(); try{ localStorage.setItem(KEY,JSON.stringify(mem)); }catch(e){ toast('No se pudo guardar en este navegador'); } if(!local) schedulePush(); }
 };
 DB.load();
+
+/* ============ Perfil remoto (Supabase) ============ */
+const SB={url:'https://khxnjdbisfpkpxpzxdlh.supabase.co',key:'sb_publishable_bvo9_a_8XC-PQfV3vBMp8A_9SJuKIMK',legacy:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtoeG5qZGJpc2Zwa3B4cHp4ZGxoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTUyMDg1NDIsImV4cCI6MjExMDc4NDU0Mn0.3geOTWPZ2HAaWIBRi0VFIBT_-ns3wwI_jAHVXVhleJ8'};
+const SYNC='retor.sync'; let syncCode=''; try{ syncCode=localStorage.getItem(SYNC)||''; }catch(e){}
+const sync={state:syncCode?'pendiente':'off',at:0,err:'',timer:null,busy:false};
+async function rpc(fn,args){ let last;
+  for(const h of [{apikey:SB.key},{apikey:SB.legacy,Authorization:'Bearer '+SB.legacy}]){
+    const c=new AbortController(), t=setTimeout(()=>c.abort(),20000);
+    try{ const r=await fetch(`${SB.url}/rest/v1/rpc/${fn}`,{method:'POST',headers:{'Content-Type':'application/json',...h},body:JSON.stringify(args),signal:c.signal}); if(r.status===401||r.status===403){ last=new Error('no autorizado'); continue; } const j=await r.json().catch(()=>null); if(!r.ok) throw new Error(j?.message||('HTTP '+r.status)); return j; }
+    catch(e){ if(e.name==='AbortError') throw new Error('sin conexión con el servidor'); throw e; } finally{ clearTimeout(t); } }
+  throw last||new Error('no autorizado'); }
+function newCode(){ const A='ABCDEFGHJKLMNPQRSTUVWXYZ23456789', u=crypto.getRandomValues(new Uint8Array(25)); let s='RETOR'; u.forEach((b,i)=>{ if(i%5===0) s+='-'; s+=A[b%32]; }); return s; }
+function payload(){ const c=JSON.parse(JSON.stringify(mem)); if(c.brain) delete c.brain.key; return c; }
+function mergeRemote(R){ if(!R||!Array.isArray(R.sessions)) return;
+  const L=mem, newer=(R.at||0)>(L.at||0), key=L.brain&&L.brain.key, by=new Map();
+  R.sessions.forEach(s=>by.set(s.id,s)); L.sessions.forEach(s=>{ const r=by.get(s.id); if(!r||!(r.coach&&!s.coach)) by.set(s.id,s); });
+  const kb=new Map(); (R.kb||[]).concat(L.kb||[]).forEach(k=>kb.set(k.id,k));
+  const drills={...(R.drills||{})}; Object.entries(L.drills||{}).forEach(([d,a])=>drills[d]=[...new Set((drills[d]||[]).concat(a))]);
+  const srs={...(R.srs||{})}; Object.entries(L.srs||{}).forEach(([i,v])=>{ const o=srs[i]; if(!o||v.n>o.n||(v.n===o.n&&(v.last||0)>=(o.last||0))) srs[i]=v; });
+  const base=newer?{...L,...R}:{...R,...L};
+  mem={...base,sessions:[...by.values()].sort((a,b)=>a.date<b.date?-1:1).slice(-200),kb:[...kb.values()].slice(-150),drills,srs};
+  if(mem.brain&&mem.brain.p!=='local'){ if(key&&(!newer||mem.brain.p===(L.brain||{}).p)) mem.brain.key=key; else if(!mem.brain.key&&L.brain&&L.brain.p===mem.brain.p) mem.brain.key=key||''; }
+  if(L.today&&L.today.k===dayKey()) mem.today=L.today; }
+async function pull(){ if(!syncCode||sync.busy) return; sync.busy=true; sync.state='sincronizando'; paintSync();
+  try{ const r=await rpc('retor_get',{p_code:syncCode}); if(r&&r.data){ const before=JSON.stringify(payload()); mergeRemote(r.data); DB.save(true); sync.at=Date.now(); sync.state='ok'; sync.err=''; if(JSON.stringify(payload())!==JSON.stringify(r.data)) schedulePush(500); if(JSON.stringify(payload())!==before) rerender(); } else { sync.state='ok'; schedulePush(200); } }
+  catch(e){ sync.state='error'; sync.err=e.message; } sync.busy=false; paintSync(); }
+function schedulePush(ms=2500){ if(!syncCode) return; clearTimeout(sync.timer); sync.timer=setTimeout(push,ms); }
+async function push(){ if(!syncCode) return; if(sync.busy) return schedulePush(1500); sync.busy=true;
+  try{ await rpc('retor_put',{p_code:syncCode,p_data:payload()}); sync.at=Date.now(); sync.state='ok'; sync.err=''; }catch(e){ sync.state='error'; sync.err=e.message; } sync.busy=false; paintSync(); }
+function paintSync(){ const e=document.querySelector('#sync-st'); if(e) e.textContent=sync.state==='ok'?'Sincronizado'+(sync.at?' · '+new Date(sync.at).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}):''):sync.state==='error'?'Error al sincronizar: '+sync.err:sync.state==='off'?'':'Sincronizando…'; }
+function rerender(){ const on=v=>!document.querySelector('#v-'+v).classList.contains('hide'); if(on('history')) renderHistory(); if(on('profile')&&document.activeElement?.tagName!=='TEXTAREA'&&document.activeElement?.tagName!=='INPUT') renderProfile(); if(on('kb')) renderKB(); if(on('train')) refreshTrain(); }
+function syncHTML(){ return `<h3>Tu perfil en la nube</h3><div class="card">${syncCode?`<p class="sm" style="margin:0 0 4px">Este dispositivo está conectado a tu perfil. <span class="mut" id="sync-st"></span></p><p class="sm mut">Para usarlo en otro dispositivo, abre Rétor allí, ve a Perfil y pega este código. Quien tenga el código puede leer y cambiar tu perfil: no lo compartas.</p><input type="password" id="sy-code" readonly value="${esc(syncCode)}"><div style="height:8px"></div><div class="row"><button class="btn sec sm" id="sy-show">Ver código</button><button class="btn sec sm" id="sy-copy">Copiar código</button><button class="btn sec sm" id="sy-now">Sincronizar ahora</button></div><div style="height:8px"></div><button class="btn sec sm" id="sy-off" style="color:var(--bad)">Desconectar este dispositivo</button>`
+  :`<p class="sm mut">Ahora tu perfil solo vive en este navegador. Actívalo en la nube para tener el mismo perfil en el móvil y en el ordenador.</p><button class="btn" id="sy-new">Activar y crear mi código</button><div style="height:14px"></div><p class="sm mut" style="margin-bottom:6px">¿Ya lo activaste en otro dispositivo? Pega aquí tu código:</p><div class="row"><input type="text" id="sy-in" placeholder="RETOR-XXXXX-XXXXX-XXXXX-XXXXX-XXXXX" autocomplete="off" style="flex:2"><button class="btn sec sm" id="sy-join">Conectar</button></div><p class="sm mut" id="sync-st" style="margin:8px 0 0"></p>`}</div>`; }
+function wireSync(){ const setCode=c=>{ syncCode=c; try{ c?localStorage.setItem(SYNC,c):localStorage.removeItem(SYNC); }catch(e){} sync.state=c?'pendiente':'off'; };
+  paintSync();
+  if(syncCode){ $('#sy-show').onclick=()=>{ const i=$('#sy-code'); i.type=i.type==='password'?'text':'password'; };
+    $('#sy-copy').onclick=async()=>{ try{ await navigator.clipboard.writeText(syncCode); toast('Código copiado'); }catch(e){ $('#sy-code').type='text'; toast('Cópialo a mano'); } };
+    $('#sy-now').onclick=()=>pull(); let armed=false;
+    $('#sy-off').onclick=e=>{ if(!armed){ armed=true; e.target.textContent='Pulsa otra vez para confirmar (el perfil sigue en la nube)'; return; } setCode(''); renderProfile(); };
+  } else {
+    $('#sy-new').onclick=async e=>{ e.target.disabled=true; setCode(newCode()); await push(); if(sync.state==='error'){ const m=sync.err; setCode(''); renderProfile(); toast('No se pudo activar: '+m,6000); return; } renderProfile(); toast('Perfil en la nube activado. Guarda tu código.',5000); };
+    $('#sy-join').onclick=async()=>{ const c=$('#sy-in').value.trim().toUpperCase().replace(/\s+/g,''), st=$('#sync-st'); if(c.length<20){ st.textContent='Ese código no es válido.'; return; } st.textContent='Conectando…';
+      try{ const r=await rpc('retor_get',{p_code:c}); if(!r||!r.data){ st.textContent='No existe ningún perfil con ese código.'; return; } setCode(c); mergeRemote(r.data); DB.save(true); sync.at=Date.now(); sync.state='ok'; schedulePush(500); renderProfile(); toast('Perfil conectado'); }catch(e){ st.textContent='Error: '+e.message; } }; } }
 
 function recurring(excludeId){
   const last=mem.sessions.filter(s=>s.id!==excludeId).slice(-10), n=last.length, c={};
@@ -556,7 +599,9 @@ const BR={ gemini:{name:'Google Gemini (gratis, escucha tu audio)',model:'gemini
 const brain=()=>mem.brain||{p:'none'};
 const brainOn=()=>{ const b=brain(); return b.p==='local'?!!navigator.gpu:(b.p==='gemini'||b.p==='compat')&&!!b.key; };
 let engine=null, engineId='';
-async function ai({system,messages,audio,json,search,status}){
+function tfetch(url,opt,ms){ const c=new AbortController(), t=setTimeout(()=>c.abort(),ms); return fetch(url,{...opt,signal:c.signal}).catch(e=>{ if(e.name==='AbortError'){ const x=new Error(`sin respuesta en ${Math.round(ms/1000)} s`); x.code=503; x.timeout=true; throw x; } throw e; }).finally(()=>clearTimeout(t)); }
+async function ai({system,messages,audio,json,search,status,timeout}){
+  const ms=timeout||(audio?120000:60000);
   const b=brain(), model=b.model||BR[b.p]?.model;
   if(b.p==='gemini'){
     const body={contents:messages.map(m=>({role:m.role==='assistant'?'model':'user',parts:[{text:m.content}]})),generationConfig:{temperature:.6,maxOutputTokens:4096}};
@@ -564,14 +609,15 @@ async function ai({system,messages,audio,json,search,status}){
     if(audio) body.contents.at(-1).parts.unshift({inlineData:{mimeType:'audio/wav',data:audio}});
     if(json&&!search) body.generationConfig.responseMimeType='application/json';
     const G='https://generativelanguage.googleapis.com/v1beta/models';
-    const one=async(md,bd)=>{ const r=await fetch(`${G}/${encodeURIComponent(md)}:generateContent`,{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':b.key},body:JSON.stringify(bd)}); const j=await r.json().catch(()=>({})); if(!r.ok){ const e=new Error(j.error?.message||('HTTP '+r.status)); e.code=r.status; throw e; } return (j.candidates?.[0]?.content?.parts||[]).map(p=>p.text||'').join(''); };
+    const one=async(md,bd)=>{ const r=await tfetch(`${G}/${encodeURIComponent(md)}:generateContent`,{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':b.key},body:JSON.stringify(bd)},ms); const j=await r.json().catch(()=>({})); if(!r.ok){ const e=new Error(j.error?.message||('HTTP '+r.status)); e.code=r.status; throw e; } return (j.candidates?.[0]?.content?.parts||[]).map(p=>p.text||'').join(''); };
     const busy=e=>[429,500,503,404].includes(e.code);
     const call=async bd=>{ let first;
-      for(let k=0;k<2;k++){ try{ const t=await one(model,bd); ai.used=model; return t; }catch(e){ first=first||e; if(!busy(e)||e.code===404) break; status&&status('Modelo saturado, reintentando…'); await sleep(2500); } }
+      for(let k=0;k<2;k++){ try{ const t=await one(model,bd); ai.used=model; return t; }catch(e){ first=first||e; if(!busy(e)||e.code===404||e.timeout) break; status&&status(model+' está saturado, reintentando…'); await sleep(2000); } }
       if(!busy(first)) throw first;
-      if(!ai.alts){ try{ const r=await fetch(G+'?pageSize=200',{headers:{'x-goog-api-key':b.key}}); const j=await r.json(); ai.alts=(j.models||[]).filter(m=>(m.supportedGenerationMethods||[]).includes('generateContent')&&/gemini.*flash/.test(m.name)&&!/image|tts|live|audio|embedding|robotics|computer/.test(m.name)).map(m=>m.name.replace('models/','')).sort().reverse(); }catch(_){ ai.alts=[]; } }
-      for(const md of ai.alts.filter(m=>m!==model).slice(0,4)){ try{ status&&status('Probando '+md+'…'); const t=await one(md,bd); ai.used=md; return t; }catch(e){ if(!busy(e)) break; } }
-      throw first; };
+      if(!ai.alts){ status&&status('Buscando otro modelo disponible…'); try{ const r=await tfetch(G+'?pageSize=200',{headers:{'x-goog-api-key':b.key}},12000); const j=await r.json(); const L=(j.models||[]).filter(m=>(m.supportedGenerationMethods||[]).includes('generateContent')&&/gemini.*flash/.test(m.name)&&!/image|tts|live|audio|embedding|robotics|computer/.test(m.name)).map(m=>m.name.replace('models/','')).sort().reverse(); ai.alts=L.filter(m=>!/lite/.test(m)).concat(L.filter(m=>/lite/.test(m))); }catch(_){ ai.alts=null; } }
+      const A=(ai.alts||[]).filter(m=>m!==model), pick=[...new Set([A.find(m=>!/lite/.test(m)),A.find(m=>/lite/.test(m)),...A])].filter(Boolean).slice(0,3);
+      for(const md of pick){ try{ status&&status('Probando '+md+'…'); const t=await one(md,bd); ai.used=md; return t; }catch(e){ if(!busy(e)) break; } }
+      first.message='Gemini no responde ahora mismo ('+first.message+'). Suele durar unos minutos; si se repite, usa Groq como cerebro.'; throw first; };
     if(search){ try{ return await call({...body,tools:[{google_search:{}}]}); }catch(e){} }
     return call(body);
   }
@@ -802,12 +848,13 @@ function renderProfile(){
     ${rec.length>1?`<h3>Otros errores habituales</h3><div class="card">${rec.slice(1).map(r=>`<div class="mom" style="cursor:default"><time>${r.k}/${r.n}</time><div>${CAT[r.id][1]}<div class="mut sm">${AREAS[CAT[r.id][0]]}</div></div></div>`).join('')}</div>`:''}
     <h3>Media por área (últimas 8)</h3><div class="card">${areaAvg.map(([k,s])=>s==null?'':`<div class="bar-row"><span>${AREAS[k]}</span><div class="tr"><b style="width:${s}%;background:${col(s)}"></b></div><em>${s}</em></div>`).join('')}</div>
     ${topFill.length?`<h3>Tus muletillas (últimas 10 sesiones)</h3><div class="chips">${topFill.map(([w,k])=>`<span class="chip">${esc(w)} ×${k}</span>`).join('')}</div>`:''}`:'<p class="mut">Tu perfil se construye solo con cada sesión: errores recurrentes, evolución por área y muletillas por idioma.</p>'}
+    ${syncHTML()}
     ${brainHTML()}
     <h3>Tus objetivos (el coach los tiene en cuenta)</h3><textarea id="notes" placeholder="Ej.: sonar más ejecutivo en francés; responder en menos de 2 minutos; dejar de decir «o sea».">${esc(mem.notes||'')}</textarea>
-    <h3>Copia de seguridad</h3><p class="mut sm">El perfil vive en este navegador. Exporta para pasarlo a otro dispositivo o no perderlo.</p>
+    <h3>Copia de seguridad</h3><p class="mut sm">Exporta un archivo con todo tu perfil, o importa uno.</p>
     <div class="row"><button class="btn sec" id="b-exp">Exportar</button><button class="btn sec" id="b-imp">Importar</button></div><input type="file" id="impf" accept="application/json,.json" class="hide">
     <div style="height:10px"></div><button class="btn sec sm" id="b-wipe" style="color:var(--bad)">Borrar todo el perfil</button>`;
-  wireBrain();
+  wireBrain(); wireSync();
   $('#notes').onchange=e=>{ mem.notes=e.target.value; DB.save(); };
   $('#b-exp').onclick=()=>{ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([JSON.stringify(mem)],{type:'application/json'})); a.download='retor-perfil.json'; a.click(); };
   $('#b-imp').onclick=()=>$('#impf').click();
@@ -904,8 +951,9 @@ chips($('#modes'),MODES,'mode',v=>v,refreshTrain); chips($('#types'),TYPES,'type
 refreshTrain();
 $('#wmodel').value=mem.settings.wmodel||'Xenova/whisper-base'; $('#wgpu').checked=!!mem.settings.wgpu;
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>show(b.dataset.v));
-setTimeout(()=>checkUpdates(false),1500);
-window.__retor={todayDrills,drillText,dayNum,practice,markDrill,drillDone,analyzeAudio,analyzeText,summarizeVision,diagnose,planChunks,renderReport,persist,show,buildPrompt,align,riskWords,wavB64,addKB,parseJSON,mem:()=>mem,state};
+if(syncCode) pull().then(()=>checkUpdates(false)); else setTimeout(()=>checkUpdates(false),1500);
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'&&syncCode&&Date.now()-sync.at>60000) pull(); });
+window.__retor={mergeRemote,payload,newCode,todayDrills,drillText,dayNum,practice,markDrill,drillDone,analyzeAudio,analyzeText,summarizeVision,diagnose,planChunks,renderReport,persist,show,buildPrompt,align,riskWords,wavB64,addKB,parseJSON,mem:()=>mem,state};
 function dayKey(d=new Date()){ return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); }
 function dayNum(){ return Math.floor((Date.now()-new Date().getTimezoneOffset()*6e4)/864e5); }
 const SRS=[1,3,7,14,30];
@@ -957,7 +1005,7 @@ function wireBrain(){ const b=brain(), H={gemini:'Clave gratuita en aistudio.goo
   const save=()=>{ const p=$('#br-p').value; mem.brain={p,key:$('#br-key').value.trim(),model:$('#br-model').value.trim(),base:$('#br-base').value.trim()}; DB.save(); };
   $('#br-p').onchange=()=>{ const p=$('#br-p').value; mem.brain={p,key:'',model:BR[p]?.model||'',base:BR.compat.base}; DB.save(); renderProfile(); };
   ['br-key','br-model','br-base'].forEach(i=>$('#'+i).onchange=save);
-  $('#br-test').onclick=async()=>{ save(); const st=$('#br-st'); st.textContent='Probando…'; try{ const t=await ai({messages:[{role:'user',content:'Responde solo: OK'}],status:x=>st.textContent=x}); if(t&&brain().p==='gemini'&&ai.used&&ai.used!==brain().model){ mem.brain.model=ai.used; DB.save(); $('#br-model').value=ai.used; st.textContent='Conectado ✓ con '+ai.used+' (el modelo anterior estaba saturado)'; } else st.textContent=t?'Conectado ✓':'Respuesta vacía'; }catch(e){ st.textContent='Error: '+e.message; } };
+  $('#br-test').onclick=async()=>{ save(); const st=$('#br-st'); st.textContent='Probando…'; try{ const t=await ai({timeout:15000,messages:[{role:'user',content:'Responde solo: OK'}],status:x=>st.textContent=x}); if(t&&brain().p==='gemini'&&ai.used&&ai.used!==brain().model){ mem.brain.model=ai.used; DB.save(); $('#br-model').value=ai.used; st.textContent='Conectado ✓ con '+ai.used+' (el modelo anterior estaba saturado)'; } else st.textContent=t?'Conectado ✓':'Respuesta vacía'; }catch(e){ st.textContent='Error: '+e.message; } };
 }
 </script>
 </body>
