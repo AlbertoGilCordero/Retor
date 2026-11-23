@@ -346,16 +346,16 @@ async function rpc(fn,args){ let last;
     catch(e){ if(e.name==='AbortError') throw new Error('sin conexión con el servidor'); throw e; } finally{ clearTimeout(t); } }
   throw last||new Error('no autorizado'); }
 function newCode(){ const A='ABCDEFGHJKLMNPQRSTUVWXYZ23456789', u=crypto.getRandomValues(new Uint8Array(25)); let s='RETOR'; u.forEach((b,i)=>{ if(i%5===0) s+='-'; s+=A[b%32]; }); return s; }
-function payload(){ const c=JSON.parse(JSON.stringify(mem)); if(c.brain) delete c.brain.key; return c; }
+function payload(){ const c=JSON.parse(JSON.stringify(mem)); if(c.brain) delete c.brain.key; if(c.brain2) delete c.brain2.key; return c; }
 function mergeRemote(R){ if(!R||!Array.isArray(R.sessions)) return;
-  const L=mem, newer=(R.at||0)>(L.at||0), key=L.brain&&L.brain.key, by=new Map();
+  const L=mem, newer=(R.at||0)>(L.at||0), by=new Map();
   R.sessions.forEach(s=>by.set(s.id,s)); L.sessions.forEach(s=>{ const r=by.get(s.id); if(!r||!(r.coach&&!s.coach)) by.set(s.id,s); });
   const kb=new Map(); (R.kb||[]).concat(L.kb||[]).forEach(k=>kb.set(k.id,k));
   const drills={...(R.drills||{})}; Object.entries(L.drills||{}).forEach(([d,a])=>drills[d]=[...new Set((drills[d]||[]).concat(a))]);
   const srs={...(R.srs||{})}; Object.entries(L.srs||{}).forEach(([i,v])=>{ const o=srs[i]; if(!o||v.n>o.n||(v.n===o.n&&(v.last||0)>=(o.last||0))) srs[i]=v; });
   const base=newer?{...L,...R}:{...R,...L};
   mem={...base,sessions:[...by.values()].sort((a,b)=>a.date<b.date?-1:1).slice(-200),kb:[...kb.values()].slice(-150),drills,srs};
-  if(mem.brain&&mem.brain.p!=='local'){ if(key&&(!newer||mem.brain.p===(L.brain||{}).p)) mem.brain.key=key; else if(!mem.brain.key&&L.brain&&L.brain.p===mem.brain.p) mem.brain.key=key||''; }
+  const lk={}; [L.brain,L.brain2].forEach(c=>{ if(c&&c.key) lk[c.p]=c.key; }); [mem.brain,mem.brain2].forEach(c=>{ if(c&&lk[c.p]) c.key=lk[c.p]; });
   if(L.today&&L.today.k===dayKey()) mem.today=L.today; }
 async function pull(){ if(!syncCode||sync.busy) return; sync.busy=true; sync.state='sincronizando'; paintSync();
   try{ const r=await rpc('retor_get',{p_code:syncCode}); if(r&&r.data){ const before=JSON.stringify(payload()); mergeRemote(r.data); DB.save(true); sync.at=Date.now(); sync.state='ok'; sync.err=''; if(JSON.stringify(payload())!==JSON.stringify(r.data)) schedulePush(500); if(JSON.stringify(payload())!==before) rerender(); } else { sync.state='ok'; schedulePush(200); } }
@@ -634,14 +634,25 @@ function diagnose(S){
 }
 
 /* ============ Cerebro IA ============ */
-const BR={ gemini:{name:'Google Gemini (gratis, escucha tu audio)',model:'gemini-3.8-flash'}, compat:{name:'Groq u otro compatible con OpenAI (gratis)',model:'llama-3.3-70b-versatile',base:'https://api.groq.com/openai/v1'}, local:{name:'Modelo local en este dispositivo (WebGPU)',model:'Qwen2.5-3B-Instruct-q4f16_1-MLC'} };
+const BR={ gemini:{name:'Google Gemini (gratis, escucha tu audio)',model:'gemini-3.8-flash'}, compat:{name:'Groq u otro compatible con OpenAI (gratis)',model:'openai/gpt-oss-120b',base:'https://api.groq.com/openai/v1'}, local:{name:'Modelo local en este dispositivo (WebGPU)',model:'Qwen2.5-3B-Instruct-q4f16_1-MLC'} };
 const brain=()=>mem.brain||{p:'none'};
-const brainOn=()=>{ const b=brain(); return b.p==='local'?!!navigator.gpu:(b.p==='gemini'||b.p==='compat')&&!!b.key; };
+const cfgs=()=>[mem.brain,mem.brain2].filter(c=>c&&c.p&&c.p!=='none'&&(c.p==='local'?!!navigator.gpu:!!c.key));
+const cfgOf=p=>cfgs().find(c=>c.p===p);
+const brainOn=()=>cfgs().length>0;
+const cloudOn=()=>cfgs().some(c=>c.p!=='local');
+const gTier=m=>/lite/.test(m||'')?1:/hydrogen|gemini-4|pro/.test(m||'')?3:2;
+function route(task){ const g=cfgOf('gemini'), c=cfgOf('compat'), l=cfgOf('local');
+  if(task==='audio') return [g].filter(Boolean);
+  if(task==='light') return [c,g,l].filter(Boolean);
+  return (g&&gTier(g.model||BR.gemini.model)>=2?[g,c,l]:[c,g,l]).filter(Boolean); }
+async function ai(o){ if(o.cfg) return aiWith(o.cfg,o);
+  const task=o.audio?'audio':(o.task||'deep'), L=route(task); if(!L.length) throw new Error(o.audio?'hace falta una clave de Gemini para escuchar el audio':'no hay cerebro IA configurado');
+  let err; for(const c of L){ try{ const t=await aiWith(c,{...o,useModel:o.useModel||(c.p==='gemini'&&task==='light'&&c.lite?c.lite:undefined)}); ai.via=c.p; return t; }catch(e){ err=err||e; } } throw err; }
 let engine=null, engineId='';
 function tfetch(url,opt,ms){ const c=new AbortController(), t=setTimeout(()=>c.abort(),ms); return fetch(url,{...opt,signal:c.signal}).catch(e=>{ if(e.name==='AbortError'){ const x=new Error(`sin respuesta en ${Math.round(ms/1000)} s`); x.code=503; x.timeout=true; throw x; } throw e; }).finally(()=>clearTimeout(t)); }
-async function ai({system,messages,audio,json,search,status,timeout,useModel,only}){
+async function aiWith(b,{system,messages,audio,json,search,status,timeout,useModel,only}){
   const ms=timeout||(audio?120000:60000);
-  const b=brain(), model=useModel||b.model||BR[b.p]?.model;
+  const model=useModel||b.model||BR[b.p]?.model;
   if(b.p==='gemini'){
     const body={contents:messages.map(m=>({role:m.role==='assistant'?'model':'user',parts:[{text:m.content}]})),generationConfig:{temperature:.6,maxOutputTokens:4096}};
     if(system) body.systemInstruction={parts:[{text:system}]};
@@ -662,8 +673,8 @@ async function ai({system,messages,audio,json,search,status,timeout,useModel,onl
   }
   if(b.p==='compat'){
     const msgs=(system?[{role:'system',content:system}]:[]).concat(messages);
-    const r=await fetch((b.base||BR.compat.base).replace(/\/$/,'')+'/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+b.key},body:JSON.stringify({model,messages:msgs,temperature:.6})});
-    const j=await r.json().catch(()=>({})); if(!r.ok) throw new Error(j.error?.message||('HTTP '+r.status)); return j.choices?.[0]?.message?.content||'';
+    const base=(b.base||BR.compat.base).replace(/\/$/,''), post=async md=>{ const r=await tfetch(base+'/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+b.key},body:JSON.stringify({model:md,messages:msgs,temperature:.6,max_tokens:1400})},ms); const j=await r.json().catch(()=>({})); if(!r.ok){ const e=new Error(j.error?.message||('HTTP '+r.status)); e.code=r.status; throw e; } ai.used=md; return j.choices?.[0]?.message?.content||''; };
+    try{ return await post(model); }catch(e){ if(/groq\.com/.test(base)&&model!=='llama-3.3-70b-versatile'&&[400,404,429,503].includes(e.code)) return post('llama-3.3-70b-versatile'); throw e; }
   }
   if(b.p==='local'){
     if(!navigator.gpu) throw new Error('este navegador no tiene WebGPU');
@@ -674,23 +685,29 @@ async function ai({system,messages,audio,json,search,status,timeout,useModel,onl
   }
   throw new Error('no hay cerebro IA configurado');
 }
-async function geminiModels(){ const b=brain(); const r=await tfetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=200',{headers:{'x-goog-api-key':b.key}},12000); const j=await r.json(); if(!r.ok) throw new Error(j.error?.message||'HTTP '+r.status);
-  return (j.models||[]).filter(m=>(m.supportedGenerationMethods||[]).includes('generateContent')&&/gemini/.test(m.name)&&/flash|pro/.test(m.name)&&!/image|tts|live|audio|embedding|robotics|computer/.test(m.name)).map(m=>m.name.replace('models/','')); }
-const gTier=m=>/lite/.test(m||'')?1:/pro/.test(m||'')?3:2;
-async function upgradeModel(status){ const cur=brain().model||BR.gemini.model, L=await geminiModels();
-  const better=L.filter(m=>gTier(m)===2&&m!==cur).sort().reverse().filter(m=>gTier(cur)<2||m>cur);
-  if(gTier(cur)>=2&&!better.length) return {ok:false,msg:'Ya estás en el mejor modelo gratuito disponible.'};
-  for(const m of better.slice(0,4)){ status('Probando '+m+'…'); try{ const t=await ai({useModel:m,only:true,timeout:15000,messages:[{role:'user',content:'Responde solo: OK'}]}); if(t){ mem.brain.model=m; DB.save(); return {ok:true,msg:'Mejorado a '+m+' ✓'}; } }catch(e){} }
-  return {ok:false,msg:'Los modelos superiores siguen saturados o sin cuota. Te quedas en '+cur+'; prueba más tarde.'}; }
-function capsHTML(){ const b=brain(), p=b.p||'none', m=b.model||BR[p]?.model||'', lite=p==='gemini'&&gTier(m)===1;
-  const R=[['Voz, ritmo, pausas y muletillas','ok','Se mide en tu dispositivo. No depende del modelo.'],['Gestos, mirada, expresión y postura','ok','Se mide en tu dispositivo. Ningún modelo ve tu vídeo.'],['Transcripción','ok','Whisper en tu dispositivo.']];
-  const add=(t,st,d)=>R.push([t,st,d]);
-  if(p==='none'){ add('Análisis del mensaje y técnicas','no','Solo reglas fijas (dudas, frases largas, cifras). Puedes copiar el informe a Claude.'); add('Corrección de pronunciación','no','Solo sonidos de riesgo típicos, sin escuchar tu audio.'); add('Conversación, discursos y ejercicios a medida','no','Preguntas, discurso y ejercicios fijos.'); add('Técnicas nuevas cada día','no',''); }
-  if(p==='gemini'){ add('Análisis del mensaje y técnicas',lite?'mid':'ok',lite?'Lo hace, pero más superficial: menos matiz al juzgar estructura y adecuación al contexto.':'Completo.'); add('Corrección de pronunciación (escucha tu audio)',lite?'mid':'ok',lite?'Escucha el audio, pero detecta menos errores finos de acento y entonación.':'Escucha hasta 2,5 minutos de tu audio.'); add('Conversación, discursos y ejercicios a medida','ok',lite?'Sí; repreguntas algo menos incisivas.':'Sí.'); add('Técnicas nuevas cada día','mid','Propuestas del modelo, marcadas «sin verificar».'); add('Límite gratuito',lite?'ok':'mid',lite?'El más holgado de Gemini: aguanta muchas sesiones al día.':'Bajo: pocas decenas de peticiones al día, y se satura a ratos. Cada sesión gasta 2; una conversación, hasta 7.'); }
-  if(p==='compat'){ add('Análisis del mensaje y técnicas','ok','Completo con Llama 3.3 70B; con modelos pequeños, más superficial.'); add('Corrección de pronunciación (escucha tu audio)','no','No recibe audio. Solo verás los sonidos de riesgo típicos.'); add('Conversación, discursos y ejercicios a medida','ok','Sí, y es el más rápido.'); add('Técnicas nuevas cada día','mid','Sin búsqueda web: solo lo que el modelo ya sabe.'); add('Límite gratuito','ok','Amplio para uso personal.'); }
-  if(p==='local'){ add('Análisis del mensaje y técnicas','mid','Básico: un modelo de 3B se queda en lo evidente y a veces se equivoca.'); add('Corrección de pronunciación (escucha tu audio)','no','No recibe audio.'); add('Conversación, discursos y ejercicios a medida','mid','Funciona pero lento y con peor francés.'); add('Técnicas nuevas cada día','no','Desactivado.'); add('Límite','ok','Ninguno y nada sale de tu equipo. Requiere WebGPU y 1–3 GB.'); }
+async function geminiModels(){ const b=cfgOf('gemini')||brain(); const r=await tfetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=200',{headers:{'x-goog-api-key':b.key}},12000); const j=await r.json(); if(!r.ok) throw new Error(j.error?.message||'HTTP '+r.status);
+  return (j.models||[]).filter(m=>(m.supportedGenerationMethods||[]).includes('generateContent')&&/gemini/.test(m.name)&&/flash|pro|hydrogen|gemini-4/.test(m.name)&&!/image|tts|live|audio|embedding|robotics|computer/.test(m.name)).map(m=>m.name.replace('models/','')); }
+async function upgradeModel(status){ const g=[mem.brain,mem.brain2].find(c=>c&&c.p==='gemini'), cur=g.model||BR.gemini.model, L=await geminiModels();
+  const lite=L.filter(m=>gTier(m)===1).sort().reverse()[0]; if(lite){ g.lite=lite; DB.save(); }
+  const better=L.filter(m=>m!==cur&&(gTier(m)>gTier(cur)||(gTier(m)===gTier(cur)&&gTier(m)>=2&&m>cur))).sort((a,b)=>gTier(b)-gTier(a)||(a<b?1:-1));
+  if(!better.length) return {ok:false,msg:'Ya estás en el mejor modelo disponible para tu clave.'};
+  for(const m of better.slice(0,6)){ status('Probando '+m+'…'); try{ const t=await ai({cfg:g,useModel:m,only:true,timeout:20000,messages:[{role:'user',content:'Responde solo: OK'}]}); if(t){ g.model=m; DB.save(); return {ok:true,msg:'Mejorado a '+m+' ✓'}; } }catch(e){} }
+  return {ok:false,msg:'Los modelos superiores están saturados, sin cuota o no son gratuitos para tu clave. Te quedas en '+cur+'; prueba más tarde.'}; }
+function capsHTML(){ const g=cfgOf('gemini'), c=cfgOf('compat'), l=cfgOf('local'), gm=g&&(g.model||BR.gemini.model), gt=g?gTier(gm):0, cm=c&&(c.model||BR.compat.model), nm={gemini:gm,compat:cm,local:'modelo local'};
+  const R=[['Voz, ritmo, pausas y muletillas','ok','Se mide en tu dispositivo. No depende del modelo.'],['Gestos, mirada, expresión y postura','ok','Se mide en tu dispositivo. Ningún modelo ve tu vídeo.'],['Transcripción','ok','Whisper en tu dispositivo.']], add=(t,st,d)=>R.push([t,st,d]);
+  const deep=route('deep')[0], light=route('light')[0];
+  if(!deep){ add('Análisis del mensaje y técnicas','no','Solo reglas fijas (dudas, frases largas, cifras). Puedes copiar el informe a Claude.'); add('Corrección de pronunciación','no','Solo sonidos de riesgo típicos, sin escuchar tu audio.'); add('Conversación, discursos y ejercicios a medida','no','Preguntas, discurso y ejercicios fijos.'); add('Técnicas nuevas cada día','no',''); }
+  else{
+    const dq=deep.p==='local'?['mid','Básico: un modelo pequeño se queda en lo evidente.']:deep.p==='gemini'?(gt>=3?['ok','El mejor gratuito: razonamiento más fino sobre estructura y adecuación al contexto.']:gt===2?['ok','Completo.']:['mid','Lo hace, pero más superficial.']):['ok',/120b|70b/.test(cm)?'Completo.':'Depende del modelo que pongas.'];
+    add('Análisis del mensaje y técnicas',dq[0],dq[1]+' Lo hace '+nm[deep.p]+'.');
+    if(g) add('Corrección de pronunciación (escucha tu audio)',gt===1?'mid':'ok',(gt===1?'Escucha el audio, pero detecta menos errores finos.':'Escucha hasta 2,5 minutos de tu audio.')+' Lo hace '+gm+'.'); else add('Corrección de pronunciación (escucha tu audio)','no','Hace falta una clave de Gemini: es el único que recibe audio.');
+    add('Conversación, discursos, temas y ejercicios a medida',light.p==='local'?'mid':'ok','Lo hace '+(light.p==='gemini'&&g.lite?g.lite:nm[light.p])+(light.p==='compat'?', el más rápido, y así no gasta cuota de Gemini.':'.'));
+    add('Técnicas nuevas cada día',cloudOn()?'mid':'no',cloudOn()?'Propuestas del modelo, marcadas «sin verificar»; sin búsqueda web en el nivel gratuito.':'Desactivado con modelo local.');
+    if(g) add('Límite gratuito de Gemini',gt===1?'ok':'mid',gt===1?'El más holgado.':'Bajo y se satura a ratos; si falla, la app pasa sola al siguiente cerebro.'+(c?'':' Añade Groq como segundo cerebro para repartir la carga.'));
+    if(c&&/groq/.test(c.base||BR.compat.base)) add('Límite gratuito de Groq','ok','Amplio para uso personal.');
+  }
   const ic={ok:['✓','var(--ok)'],mid:['◐','var(--warn)'],no:['✕','var(--bad)']};
-  return `<details open style="margin-top:14px"><summary>Qué puede hacer${p==='none'?' sin IA':' '+esc(m)}</summary><div style="margin-top:8px">${R.map(([t,st,d])=>`<div class="pw" style="gap:10px"><span style="color:${ic[st][1]};flex:none;width:18px;text-align:center">${ic[st][0]}</span><div><b style="font-weight:600">${t}</b>${d?`<div class="mut sm">${d}</div>`:''}</div></div>`).join('')}</div></details>`; }
+  return `<details open style="margin-top:14px"><summary>Qué hace cada cosa con tu configuración</summary><div style="margin-top:8px">${R.map(([t,st,d])=>`<div class="pw" style="gap:10px"><span style="color:${ic[st][1]};flex:none;width:18px;text-align:center">${ic[st][0]}</span><div><b style="font-weight:600">${t}</b>${d?`<div class="mut sm">${d}</div>`:''}</div></div>`).join('')}</div></details>`; }
 function parseJSON(t){ t=String(t||''); const a=t.search(/[\[{]/); if(a<0) return null; const open=t[a], close=open==='['?']':'}', b=t.lastIndexOf(close); if(b<a) return null; try{ return JSON.parse(t.slice(a,b+1)); }catch(e){ return null; } }
 const allKB=()=>KB.concat(mem.kb||[]);
 function kbFor(type,n){ const ids=KTYPE[type]||KTYPE.libre, all=allKB(); return ids.map(i=>all.find(k=>k.id===i)).filter(Boolean).concat((mem.kb||[]).slice(-4)).slice(0,n); }
@@ -719,7 +736,7 @@ function md(s){ return esc(s).replace(/^#{2,4}\s*(.+)$/gm,'<h4>$1</h4>').replace
 async function runCoach(S){
   const box=$('#coach'), st=$('#llm-status'); if(!brainOn()){ if(st) st.textContent='Configura el cerebro IA en Perfil.'; return; }
   try{ if(st) st.textContent='El coach está pensando…';
-    const out=await ai({messages:[{role:'user',content:buildPrompt(S,brain().p==='local')}],status:t=>st&&(st.textContent=t)});
+    const out=await ai({task:'deep',messages:[{role:'user',content:buildPrompt(S,!cloudOn())}],status:t=>st&&(st.textContent=t)});
     S.coach=out; persist(S); if($('#coach')===box&&box) box.innerHTML=md(out); if(st) st.textContent='';
   }catch(e){ if(st) st.textContent='El cerebro IA falló: '+(e.message||e); }
 }
@@ -746,7 +763,7 @@ function wavB64(x,sr=16000){ const n=x.length, b=new DataView(new ArrayBuffer(44
   for(let i=0;i<n;i++) b.setInt16(44+i*2,Math.max(-1,Math.min(1,x[i]))*32767,true);
   const u=new Uint8Array(b.buffer); let s=''; for(let i=0;i<u.length;i+=0x8000) s+=String.fromCharCode.apply(null,u.subarray(i,i+0x8000)); return btoa(s); }
 async function runPron(S){
-  const st=$('#pron-status'); if(S.lang==='es'||brain().p!=='gemini'||!brainOn()||!state.pcm) return;
+  const st=$('#pron-status'); if(S.lang==='es'||!cfgOf('gemini')||!state.pcm) return;
   try{ if(st) st.textContent='El cerebro IA está escuchando tu pronunciación…';
     const t0=Math.max(0,Math.floor(((S.audio&&S.audio.t0)||0)*16000)), pcm=state.pcm.subarray(t0,t0+16000*150);
     const txt=await ai({json:true,audio:wavB64(pcm),messages:[{role:'user',content:`Escucha este audio: un hispanohablante nativo hablando en ${LANGS[S.lang][0]}. Eres profesor de fonética. Devuelve SOLO JSON con esta forma: {"nota":0-100,"resumen":"una frase en español sobre su acento e inteligibilidad","errores":[{"palabra":"palabra tal como debería decirse","problema":"qué sonido pronuncia mal y cómo suena lo que dice (en español)","como":"cómo corregirlo, con transcripción IPA y una aproximación para hispanohablantes"}]}. Máximo 8 errores, solo los que realmente se oyen en el audio y más afectan a la claridad, incluidos acento de palabra, ritmo y entonación si procede. Si pronuncia bien, lista vacía. Transcripción aproximada como referencia: """${(S.text?.full||'').slice(0,2500)}"""`}]});
@@ -769,8 +786,8 @@ function addKB(arr,via){ if(!Array.isArray(arr)) return 0; mem.kb=mem.kb||[]; co
 async function checkUpdates(force){
   let n=0;
   try{ const r=await fetch('kb.json?'+Date.now(),{cache:'no-store'}); if(r.ok) n+=addKB(await r.json(),'kb.json'); }catch(e){}
-  if(brainOn()&&brain().p!=='local'&&(force||mem.kbDay!==dayKey())){
-    try{ const txt=await ai({search:true,messages:[{role:'user',content:`Busca investigación o técnicas profesionales de comunicación, persuasión, negociación, oratoria o lenguaje no verbal (estudios revisados por pares, libros de negociadores o agentes del FBI/CIA, Harvard, etc.) que NO estén ya en esta lista:\n${allKB().map(k=>k.t).join('; ')}\n\nPrioriza lo publicado recientemente. Devuelve SOLO un array JSON de 0 a 2 elementos: [{"c":"neg|per|est|voz|cue|mito","t":"nombre corto en español","d":"cómo se aplica y qué efecto consigue, 1–3 frases en español","s":"autor, publicación y año","url":"enlace https a la fuente si lo tienes"}]. Solo incluye lo que puedas atribuir a una fuente real y concreta; si dudas, no lo incluyas.`}]}); n+=addKB(parseJSON(txt),'ia'); mem.kbAt=Date.now(); mem.kbDay=dayKey(); DB.save(); }catch(e){}
+  if(cloudOn()&&(force||mem.kbDay!==dayKey())){
+    try{ const txt=await ai({task:'light',search:true,messages:[{role:'user',content:`Busca investigación o técnicas profesionales de comunicación, persuasión, negociación, oratoria o lenguaje no verbal (estudios revisados por pares, libros de negociadores o agentes del FBI/CIA, Harvard, etc.) que NO estén ya en esta lista:\n${allKB().map(k=>k.t).join('; ')}\n\nPrioriza lo publicado recientemente. Devuelve SOLO un array JSON de 0 a 2 elementos: [{"c":"neg|per|est|voz|cue|mito","t":"nombre corto en español","d":"cómo se aplica y qué efecto consigue, 1–3 frases en español","s":"autor, publicación y año","url":"enlace https a la fuente si lo tienes"}]. Solo incluye lo que puedas atribuir a una fuente real y concreta; si dudas, no lo incluyas.`}]}); n+=addKB(parseJSON(txt),'ia'); mem.kbAt=Date.now(); mem.kbDay=dayKey(); DB.save(); }catch(e){}
   }
   if(n) toast(`${n} técnica(s) nueva(s) en tu base`); return n;
 }
@@ -884,7 +901,7 @@ function gameHTML(S){ const g=S.game||{}; if(!g.mode||g.mode==='libre') return '
   return ''; }
 function pronHTML(S){ if(S.lang==='es') return ''; const p=S.pron||{}, say=w=>`<button class="btn sec sm" data-say="${esc(w)}">▶</button>`; let h='';
   if(p.ai) h+=`<div class="card"><p>${esc(p.ai.resumen)}</p>${p.ai.errores.map(e=>`<div class="pw">${say(e.w)}<div><b>${esc(e.w)}</b> — ${esc(e.p)}<div class="mut sm">${esc(e.c)}</div></div></div>`).join('')||'<p class="mut sm">Sin errores relevantes detectados.</p>'}</div>`;
-  else if(p.risk&&p.risk.length) h+=`<div class="card"><p class="sm mut">${brain().p==='gemini'&&brainOn()?'':'Para una corrección real sobre tu audio activa el cerebro Gemini en Perfil (gratis). Mientras tanto: '}sonidos que suelen fallar a los hispanohablantes en palabras que has dicho. Escucha el modelo y compárate; no están medidos en tu audio.</p>${p.risk.map(e=>`<div class="pw">${say(e.w)}<div><b>${esc(e.w)}</b><div class="mut sm">${esc(e.tip)}</div></div></div>`).join('')}</div>`;
+  else if(p.risk&&p.risk.length) h+=`<div class="card"><p class="sm mut">${cfgOf('gemini')?'':'Para una corrección real sobre tu audio activa el cerebro Gemini en Perfil (gratis). Mientras tanto: '}sonidos que suelen fallar a los hispanohablantes en palabras que has dicho. Escucha el modelo y compárate; no están medidos en tu audio.</p>${p.risk.map(e=>`<div class="pw">${say(e.w)}<div><b>${esc(e.w)}</b><div class="mut sm">${esc(e.tip)}</div></div></div>`).join('')}</div>`;
   return h?`<h2>Pronunciación</h2><p class="sm mut" id="pron-status"></p>${h}`:`<p class="sm mut" id="pron-status"></p>`; }
 function renderHistory(){
   const L=[...mem.sessions].reverse();
@@ -915,7 +932,7 @@ function renderProfile(){
   $('#b-exp').onclick=()=>{ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([JSON.stringify(mem)],{type:'application/json'})); a.download='retor-perfil.json'; a.click(); };
   $('#b-imp').onclick=()=>$('#impf').click();
   $('#impf').onchange=async e=>{ try{ const d=JSON.parse(await e.target.files[0].text()); if(!Array.isArray(d.sessions)) throw 0; const ids=new Set(mem.sessions.map(s=>s.id)); d.sessions.forEach(s=>{ if(!ids.has(s.id)) mem.sessions.push(s); }); mem.sessions.sort((a,b)=>a.date<b.date?-1:1); if(!mem.notes) mem.notes=d.notes||''; DB.save(); renderProfile(); toast('Perfil importado'); }catch(_){ toast('Archivo no válido'); } };
-  let armed=false; $('#b-wipe').onclick=e=>{ if(!armed){ armed=true; e.target.textContent='Pulsa otra vez para confirmar'; return; } mem={sessions:[],settings:mem.settings,notes:'',brain:mem.brain,kb:mem.kb,drills:mem.drills,srs:mem.srs}; DB.save(); renderProfile(); };
+  let armed=false; $('#b-wipe').onclick=e=>{ if(!armed){ armed=true; e.target.textContent='Pulsa otra vez para confirmar'; return; } mem={sessions:[],settings:mem.settings,notes:'',brain:mem.brain,kb:mem.kb,drills:mem.drills,srs:mem.srs,brain2:mem.brain2}; DB.save(); renderProfile(); };
 }
 function show(v){
   document.body.dataset.v=v;
@@ -937,7 +954,7 @@ async function convQuestion(){
   const i=conv.turns.length, lang=state.lang, bank=(BANK.conv[state.type]||BANK.conv.generic)[lang];
   if(!conv.ai) return bank[i%bank.length];
   const msgs=[{role:'user',content:'(Empieza la conversación.)'}]; conv.turns.forEach(t=>{ msgs.push({role:'assistant',content:t.q}); msgs.push({role:'user',content:t.a||'(respuesta no transcrita; continúa con otra pregunta)'}); });
-  try{ const q=await ai({system:`Eres el interlocutor en un ejercicio de comunicación (${TYPES[state.type]}). Contexto dado por el usuario: ${$('#ctx').value.trim()||'sin contexto; elige un escenario profesional realista'}. Habla SOLO en ${LANGS[lang][0]}. Cada intervención tuya: 1–2 frases, sin acotaciones ni comillas. Sé exigente: repregunta sobre lo que acaba de decir, pide concreción y pruebas, y al menos una vez cambia de tema por sorpresa para obligarle a improvisar. Esta es la intervención ${i+1} de ${conv.max}${i+1===conv.max?'; ciérrala con una última pregunta difícil':''}.`,messages:msgs});
+  try{ const q=await ai({task:'light',timeout:25000,system:`Eres el interlocutor en un ejercicio de comunicación (${TYPES[state.type]}). Contexto dado por el usuario: ${$('#ctx').value.trim()||'sin contexto; elige un escenario profesional realista'}. Habla SOLO en ${LANGS[lang][0]}. Cada intervención tuya: 1–2 frases, sin acotaciones ni comillas. Sé exigente: repregunta sobre lo que acaba de decir, pide concreción y pruebas, y al menos una vez cambia de tema por sorpresa para obligarle a improvisar. Esta es la intervención ${i+1} de ${conv.max}${i+1===conv.max?'; ciérrala con una última pregunta difícil':''}.`,messages:msgs});
     return q.replace(/^["«\s]+|["»\s]+$/g,'').slice(0,400)||bank[i%bank.length]; }catch(e){ return bank[i%bank.length]; }
 }
 async function convTurn(){
@@ -998,8 +1015,8 @@ function renderMode(){
   const M=$('#mins'); if(M) M.onclick=e=>{ const b=e.target.closest('.chip'); if(!b) return; g.ref=$('#ref')?.value||g.ref; g.mins=+b.dataset.n; renderMode(); };
   if(m==='memo'){ $('#ref').onchange=e=>g.ref=e.target.value; $('#b-listen').onclick=()=>speak($('#ref').value,state.lang,.95);
     $('#b-gen').onclick=async()=>{ const st=$('#gen-status'); if(!brainOn()){ $('#ref').value=g.ref=BANK.speech[state.lang]; st.textContent='Discurso de ejemplo (~1 min). Con el cerebro IA se generan a medida y de 1 a 3 minutos.'; return; }
-      st.textContent='Escribiendo…'; try{ const t=await ai({messages:[{role:'user',content:`Escribe un discurso en ${LANGS[state.lang][0]} de unas ${g.mins*140} palabras para memorizar y decir en voz alta. Tipo: ${TYPES[state.type]}. Contexto: ${$('#ctx').value.trim()||'tema profesional inspirador a tu elección'}. Usa frases cortas, una idea clara al inicio que se repite en el cierre, una lista de tres y un contraste («no es X, es Y»). Vocabulario rico pero natural. Devuelve solo el texto del discurso, sin título ni acotaciones.`}],status:x=>st.textContent=x}); $('#ref').value=g.ref=t.trim(); st.textContent=''; }catch(e){ st.textContent='Falló la IA: '+e.message; } }; }
-  if(m==='improv') $('#b-topic').onclick=async()=>{ if(!brainOn()) return newTopic(); const e=$('#topic'); e.textContent='…'; try{ const t=await ai({messages:[{role:'user',content:`Dame UN tema para improvisar un discurso de ${g.mins} minuto(s) en ${LANGS[state.lang][0]}. Tipo: ${TYPES[state.type]}. Contexto: ${$('#ctx').value.trim()||'profesional, variado'}. Que obligue a tomar postura. Temas ya usados, no los repitas: ${mem.sessions.slice(-8).map(s=>s.game?.topic).filter(Boolean).join(' | ')||'ninguno'}. Devuelve solo el tema, una frase, en ${LANGS[state.lang][0]}.`}]}); g.topic=t.trim().replace(/^["«]|["»]$/g,'').slice(0,200); e.textContent=g.topic; }catch(_){ newTopic(); } };
+      st.textContent='Escribiendo…'; try{ const t=await ai({task:'light',messages:[{role:'user',content:`Escribe un discurso en ${LANGS[state.lang][0]} de unas ${g.mins*140} palabras para memorizar y decir en voz alta. Tipo: ${TYPES[state.type]}. Contexto: ${$('#ctx').value.trim()||'tema profesional inspirador a tu elección'}. Usa frases cortas, una idea clara al inicio que se repite en el cierre, una lista de tres y un contraste («no es X, es Y»). Vocabulario rico pero natural. Devuelve solo el texto del discurso, sin título ni acotaciones.`}],status:x=>st.textContent=x}); $('#ref').value=g.ref=t.trim(); st.textContent=''; }catch(e){ st.textContent='Falló la IA: '+e.message; } }; }
+  if(m==='improv') $('#b-topic').onclick=async()=>{ if(!brainOn()) return newTopic(); const e=$('#topic'); e.textContent='…'; try{ const t=await ai({task:'light',timeout:20000,messages:[{role:'user',content:`Dame UN tema para improvisar un discurso de ${g.mins} minuto(s) en ${LANGS[state.lang][0]}. Tipo: ${TYPES[state.type]}. Contexto: ${$('#ctx').value.trim()||'profesional, variado'}. Que obligue a tomar postura. Temas ya usados, no los repitas: ${mem.sessions.slice(-8).map(s=>s.game?.topic).filter(Boolean).join(' | ')||'ninguno'}. Devuelve solo el tema, una frase, en ${LANGS[state.lang][0]}.`}]}); g.topic=t.trim().replace(/^["«]|["»]$/g,'').slice(0,200); e.textContent=g.topic; }catch(_){ newTopic(); } };
 }
 function streakTxt(){ const days=new Set(mem.sessions.map(s=>new Date(s.date).toDateString())); let n=0; const d=new Date(); if(!days.has(d.toDateString())) d.setDate(d.getDate()-1); while(days.has(d.toDateString())){ n++; d.setDate(d.getDate()-1); }
   const best=Math.max(0,...mem.sessions.filter(s=>(s.game?.mode||'libre')===state.mode&&s.overall!=null).map(s=>s.overall)); return (n?`Racha: ${n} día(s)`:'Sin racha: graba hoy')+(best?` · Récord en ${MODES[state.mode]}: ${best}`:''); }
@@ -1015,7 +1032,7 @@ $('#wmodel').value=mem.settings.wmodel||'Xenova/whisper-base'; $('#wgpu').checke
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>show(b.dataset.v));
 if(syncCode) pull().then(()=>checkUpdates(false)); else setTimeout(()=>checkUpdates(false),1500);
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'&&syncCode&&Date.now()-sync.at>60000) pull(); });
-window.__retor={drillLang,capsHTML,mergeRemote,payload,newCode,todayDrills,drillText,dayNum,practice,markDrill,drillDone,analyzeAudio,analyzeText,summarizeVision,diagnose,planChunks,renderReport,persist,show,buildPrompt,align,riskWords,wavB64,addKB,parseJSON,mem:()=>mem,state};
+window.__retor={route,cfgs,drillLang,capsHTML,mergeRemote,payload,newCode,todayDrills,drillText,dayNum,practice,markDrill,drillDone,analyzeAudio,analyzeText,summarizeVision,diagnose,planChunks,renderReport,persist,show,buildPrompt,align,riskWords,wavB64,addKB,parseJSON,mem:()=>mem,state};
 function dayKey(d=new Date()){ return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); }
 function dayNum(){ return Math.floor((Date.now()-new Date().getTimezoneOffset()*6e4)/864e5); }
 const SRS=[1,3,7,14,30];
@@ -1040,9 +1057,9 @@ function markDrill(id,on=true){ mem.drills=mem.drills||{}; mem.srs=mem.srs||{}; 
   mem.drills[k]=[...a]; const ks=Object.keys(mem.drills); if(ks.length>120) delete mem.drills[ks[0]]; DB.save(); }
 function drillStreak(){ let n=0; const d=new Date(), has=x=>((mem.drills||{})[dayKey(x)]||[]).length>0; if(!has(d)) d.setDate(d.getDate()-1); while(has(d)){ n++; d.setDate(d.getDate()-1); } return n; }
 let varBusy=false;
-async function freshVariants(){ const T=mem.today; if(varBusy||!T||T.x||!brainOn()||brain().p==='local') return; varBusy=true;
+async function freshVariants(){ const T=mem.today; if(varBusy||!T||T.x||!cloudOn()) return; varBusy=true;
   try{ const all=allKB(), items=T.ids.map(i=>all.find(k=>k.id===i)).filter(Boolean), rec=recurring().map(r=>CAT[r.id][1]), ctxs=[...new Set(mem.sessions.slice(-6).map(s=>s.ctx?.text).filter(Boolean))].slice(-3);
-    const txt=await ai({json:true,messages:[{role:'user',content:`Eres un coach de comunicación. Diseña el ejercicio de HOY para cada técnica: un ejercicio distinto del ejercicio base, de 1–2 frases, que se haga grabándose en vídeo 30–120 s, con un objetivo medible (por ejemplo: % de mirada a cámara, palabras/min, nº de muletillas, pausas, cifras citadas) y un escenario concreto y realista adaptado a esta persona.\nObjetivos de la persona: ${mem.notes||'no indicados'}\nSus errores recurrentes: ${rec.join('; ')||'sin patrón aún'}\nContextos recientes que entrena: ${ctxs.join(' | ')||'no indicados'}\nIdioma en que hará cada ejercicio (escribe el enunciado en español, pero cualquier frase de ejemplo que deba decir ponla en ese idioma): ${items.map(k=>k.id+'='+LNAME[drillLang(k.id)]).join(', ')}\nVeces que ya ha practicado cada técnica: ${items.map(k=>k.id+'='+((mem.srs||{})[k.id]?.n||0)).join(', ')} (si es repaso, sube la dificultad).\n\nTécnicas:\n${items.map(k=>`- id "${k.id}": ${k.t}. ${k.d} Ejercicio base: ${drillOf(k.id)[1]}`).join('\n')}\n\nDevuelve SOLO JSON: {"<id>":"ejercicio en español"} con exactamente esos ids.`}]});
+    const txt=await ai({task:'light',json:true,messages:[{role:'user',content:`Eres un coach de comunicación. Diseña el ejercicio de HOY para cada técnica: un ejercicio distinto del ejercicio base, de 1–2 frases, que se haga grabándose en vídeo 30–120 s, con un objetivo medible (por ejemplo: % de mirada a cámara, palabras/min, nº de muletillas, pausas, cifras citadas) y un escenario concreto y realista adaptado a esta persona.\nObjetivos de la persona: ${mem.notes||'no indicados'}\nSus errores recurrentes: ${rec.join('; ')||'sin patrón aún'}\nContextos recientes que entrena: ${ctxs.join(' | ')||'no indicados'}\nIdioma en que hará cada ejercicio (escribe el enunciado en español, pero cualquier frase de ejemplo que deba decir ponla en ese idioma): ${items.map(k=>k.id+'='+LNAME[drillLang(k.id)]).join(', ')}\nVeces que ya ha practicado cada técnica: ${items.map(k=>k.id+'='+((mem.srs||{})[k.id]?.n||0)).join(', ')} (si es repaso, sube la dificultad).\n\nTécnicas:\n${items.map(k=>`- id "${k.id}": ${k.t}. ${k.d} Ejercicio base: ${drillOf(k.id)[1]}`).join('\n')}\n\nDevuelve SOLO JSON: {"<id>":"ejercicio en español"} con exactamente esos ids.`}]});
     const j=parseJSON(txt), x={}; if(j) T.ids.forEach(i=>{ if(typeof j[i]==='string'&&j[i].length>20&&j[i].length<500) x[i]=j[i]; });
     if(Object.keys(x).length&&mem.today===T){ T.x=x; DB.save(); if(!$('#v-kb').classList.contains('hide')) renderKB(); } }catch(e){} varBusy=false; }
 function practice(id){ const k=allKB().find(x=>x.id===id), dr=k&&drillOf(id); if(!k) return; state.mode=dr[0]; state.drill=id; const dl=drillLang(id); if(dl){ state.lang=dl; state.game.topic=''; } show('train'); paintLangs(); chips($('#modes'),MODES,'mode',modeLab,refreshTrain); refreshTrain(); $('#ctx').value=`Ejercicio de técnica «${k.t}»${dl?' ('+LNAME[dl]+')':''}: ${drillText(id)}`; toast(dl?`Ejercicio cargado: este toca ${LNAME[dl]}.`:'Ejercicio cargado. Graba cuando quieras.'); }
@@ -1059,18 +1076,27 @@ function renderKB(){
   document.querySelectorAll('#v-kb [data-pr]').forEach(e=>e.onclick=ev=>{ ev.preventDefault(); practice(e.dataset.pr); });
   document.querySelectorAll('#v-kb [data-dn]').forEach(e=>e.onclick=()=>{ markDrill(e.dataset.dn,!drillDone(e.dataset.dn)); renderKB(); });
   $('#kcats').onclick=e=>{ const b=e.target.closest('.chip'); if(b){ state.kcat=b.dataset.k; renderKB(); } };
-  $('#b-upd').onclick=async e=>{ e.target.disabled=true; e.target.textContent='Buscando…'; const n=await checkUpdates(true); if(!n) toast(brainOn()&&brain().p!=='local'?'Nada nuevo por ahora':'Sin novedades. Activa un cerebro IA en la nube para buscar.'); renderKB(); };
+  $('#b-upd').onclick=async e=>{ e.target.disabled=true; e.target.textContent='Buscando…'; const n=await checkUpdates(true); if(!n) toast(cloudOn()?'Nada nuevo por ahora':'Sin novedades. Activa un cerebro IA en la nube para buscar.'); renderKB(); };
 }
 function brainHTML(){ const b=brain(); return `<h3>Cerebro IA</h3><div class="card"><select id="br-p"><option value="none">Sin IA (solo métricas + copiar para Claude)</option>${Object.entries(BR).map(([k,v])=>`<option value="${k}">${v.name}</option>`).join('')}</select>
   <div id="br-f" class="${b.p==='none'||!b.p?'hide':''}"><div style="height:10px"></div><input type="password" id="br-key" placeholder="Clave API (se guarda solo en este navegador)" autocomplete="off" class="${b.p==='local'?'hide':''}"><div style="height:8px"></div><input type="text" id="br-model" placeholder="modelo"><div style="height:8px"></div><input type="text" id="br-base" placeholder="URL base" class="${b.p==='compat'?'':'hide'}">
-  <p class="sm mut" style="margin:10px 0 0" id="br-help"></p><div style="height:10px"></div><div class="row" style="flex-wrap:wrap"><button class="btn sec sm" id="br-test">Probar conexión</button>${b.p==='gemini'?'<button class="btn sm" id="br-up">Intentar mejorar el modelo</button>':''}</div><p class="sm mut" id="br-st" style="margin:8px 0 0"></p></div>${capsHTML()}</div>`; }
-function wireBrain(){ const b=brain(), H={gemini:'Clave gratuita en aistudio.google.com (sin tarjeta). Es el único que escucha tu audio para corregir pronunciación. El nivel gratuito tiene límite diario y a veces el modelo está saturado: la app reintenta y cambia sola a otro modelo Flash disponible. Google puede usar lo que envías en el nivel gratuito para mejorar sus productos.',compat:'Clave gratuita en console.groq.com. Rápido y con límites amplios, pero solo lee texto (no escucha la pronunciación). Vale cualquier API compatible con OpenAI, incluido Ollama en tu ordenador.',local:'Todo en tu dispositivo, sin enviar nada. Necesita Chrome o Edge de escritorio con WebGPU y descarga 1–3 GB. Es el menos capaz de los tres.'};
+  <p class="sm mut" style="margin:10px 0 0" id="br-help"></p><div style="height:10px"></div><div class="row" style="flex-wrap:wrap"><button class="btn sec sm" id="br-test">Probar conexión</button>${b.p==='gemini'||(mem.brain2&&mem.brain2.p==='gemini')?'<button class="btn sm" id="br-up">Intentar mejorar el modelo de Gemini</button>':''}</div><p class="sm mut" id="br-st" style="margin:8px 0 0"></p></div>
+  <div class="${b.p==='gemini'||b.p==='compat'?'':'hide'}"><h3 style="margin-top:22px">Segundo cerebro (opcional)</h3><p class="sm mut">Con dos claves la app reparte el trabajo: el mejor modelo analiza el mensaje, Gemini escucha la pronunciación y el otro lleva conversación, temas y ejercicios. Si uno falla o se queda sin cuota, pasa al otro.</p>
+  <select id="b2-p"><option value="none">Ninguno</option>${Object.entries(BR).filter(([k])=>k!==b.p&&k!=='local').map(([k,v])=>`<option value="${k}">${v.name}</option>`).join('')}</select>
+  <div id="b2-f" class="${mem.brain2&&mem.brain2.p&&mem.brain2.p!=='none'?'':'hide'}"><div style="height:10px"></div><input type="password" id="b2-key" placeholder="Clave API" autocomplete="off"><div style="height:8px"></div><input type="text" id="b2-model" placeholder="modelo"><div style="height:8px"></div><input type="text" id="b2-base" placeholder="URL base" class="${mem.brain2&&mem.brain2.p==='compat'?'':'hide'}"><div style="height:10px"></div><button class="btn sec sm" id="b2-test">Probar segundo cerebro</button><p class="sm mut" id="b2-st" style="margin:8px 0 0"></p></div></div>
+  ${capsHTML()}</div>`; }
+function wireBrain(){ const b=brain(), H={gemini:'Clave gratuita en aistudio.google.com (sin tarjeta). Es el único que escucha tu audio para corregir pronunciación. El nivel gratuito tiene límite diario y a veces el modelo está saturado: la app reintenta y cambia sola a otro modelo Flash disponible. Google puede usar lo que envías en el nivel gratuito para mejorar sus productos.',compat:'Clave gratuita en console.groq.com. Usa GPT-OSS 120B: rápido y con límites amplios, pero solo lee texto (no escucha la pronunciación). Vale cualquier API compatible con OpenAI, incluido Ollama en tu ordenador.',local:'Todo en tu dispositivo, sin enviar nada. Necesita Chrome o Edge de escritorio con WebGPU y descarga 1–3 GB. Es el menos capaz de los tres.'};
   $('#br-p').value=b.p||'none'; $('#br-key').value=b.key||''; $('#br-model').value=b.model||BR[b.p]?.model||''; $('#br-base').value=b.base||BR.compat.base; $('#br-help').textContent=H[b.p]||'';
   const save=()=>{ const p=$('#br-p').value; mem.brain={p,key:$('#br-key').value.trim(),model:$('#br-model').value.trim(),base:$('#br-base').value.trim()}; DB.save(); };
-  $('#br-p').onchange=()=>{ const p=$('#br-p').value; mem.brain={p,key:'',model:BR[p]?.model||'',base:BR.compat.base}; DB.save(); renderProfile(); };
+  $('#br-p').onchange=()=>{ const p=$('#br-p').value, old=mem.brain, b2=mem.brain2; if(b2&&b2.p===p){ mem.brain=b2; mem.brain2=old&&old.p!=='none'&&old.p!=='local'?old:null; } else { mem.brain={p,key:'',model:BR[p]?.model||'',base:BR.compat.base}; } DB.save(); renderProfile(); };
+  const b2=mem.brain2||{p:'none'}; if($('#b2-p')){ $('#b2-p').value=[...$('#b2-p').options].some(o=>o.value===b2.p)?b2.p:'none'; $('#b2-key').value=b2.key||''; $('#b2-model').value=b2.model||BR[b2.p]?.model||''; $('#b2-base').value=b2.base||BR.compat.base;
+    const save2=()=>{ const p=$('#b2-p').value; mem.brain2=p==='none'?null:{...(mem.brain2||{}),p,key:$('#b2-key').value.trim(),model:$('#b2-model').value.trim()||BR[p].model,base:$('#b2-base').value.trim()}; DB.save(); };
+    $('#b2-p').onchange=()=>{ const p=$('#b2-p').value; mem.brain2=p==='none'?null:{p,key:'',model:BR[p].model,base:BR.compat.base}; DB.save(); renderProfile(); };
+    ['b2-key','b2-model','b2-base'].forEach(i=>$('#'+i).onchange=()=>{ save2(); renderProfile(); });
+    $('#b2-test').onclick=async()=>{ save2(); const st=$('#b2-st'); st.textContent='Probando…'; try{ const t=await ai({cfg:mem.brain2,timeout:15000,messages:[{role:'user',content:'Responde solo: OK'}],status:x=>st.textContent=x}); const u=ai.used; if(t&&u&&u!==mem.brain2.model){ mem.brain2.model=u; DB.save(); renderProfile(); $('#b2-st').textContent='Conectado ✓ con '+u; } else st.textContent=t?'Conectado ✓':'Respuesta vacía'; }catch(e){ st.textContent='Error: '+e.message; } }; }
   ['br-key','br-model','br-base'].forEach(i=>$('#'+i).onchange=()=>{ save(); if(i!=='br-key') renderProfile(); });
-  $('#br-up')&&($('#br-up').onclick=async e=>{ save(); const st=$('#br-st'); if(!brain().key){ st.textContent='Pega primero tu clave.'; return; } e.target.disabled=true; st.textContent='Buscando modelos…'; let r; try{ r=await upgradeModel(x=>st.textContent=x); }catch(err){ r={msg:'Error: '+err.message}; } renderProfile(); $('#br-st').textContent=r.msg; });
-  $('#br-test').onclick=async()=>{ save(); const st=$('#br-st'); st.textContent='Probando…'; try{ const t=await ai({timeout:15000,messages:[{role:'user',content:'Responde solo: OK'}],status:x=>st.textContent=x}); if(t&&brain().p==='gemini'&&ai.used&&ai.used!==brain().model){ mem.brain.model=ai.used; DB.save(); renderProfile(); $('#br-st').textContent='Conectado ✓ con '+ai.used+' (el modelo anterior estaba saturado)'; } else { st.textContent=t?'Conectado ✓':'Respuesta vacía'; } }catch(e){ st.textContent='Error: '+e.message; } };
+  $('#br-up')&&($('#br-up').onclick=async e=>{ save(); const st=$('#br-st'); if(!cfgOf('gemini')){ st.textContent='Pega primero tu clave de Gemini.'; return; } e.target.disabled=true; st.textContent='Buscando modelos…'; let r; try{ r=await upgradeModel(x=>st.textContent=x); }catch(err){ r={msg:'Error: '+err.message}; } renderProfile(); $('#br-st').textContent=r.msg; });
+  $('#br-test').onclick=async()=>{ save(); const st=$('#br-st'); st.textContent='Probando…'; try{ const t=await ai({cfg:mem.brain,timeout:15000,messages:[{role:'user',content:'Responde solo: OK'}],status:x=>st.textContent=x}); if(t&&brain().p==='gemini'&&ai.used&&ai.used!==brain().model){ mem.brain.model=ai.used; DB.save(); renderProfile(); $('#br-st').textContent='Conectado ✓ con '+ai.used+' (el modelo anterior estaba saturado)'; } else { st.textContent=t?'Conectado ✓':'Respuesta vacía'; } }catch(e){ st.textContent='Error: '+e.message; } };
 }
 </script>
 </body>
