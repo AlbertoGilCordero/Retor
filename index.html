@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0b0b0c">
+<title>Rétor — entrenador de comunicación</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0b0b0c;--card:#151517;--card2:#1c1c1f;--line:#2a2a2e;--tx:#f3efe8;--mut:#9a958c;--acc:#ff5a36;--ok:#7bd88f;--warn:#f2c14e;--bad:#ff5a36;--serif:"Instrument Serif",Georgia,serif}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.5 Inter,system-ui,-apple-system,sans-serif}
+body{padding-bottom:84px}
+main{max-width:760px;margin:0 auto;padding:20px 18px}
+h1{font:400 40px/1.05 var(--serif);margin:8px 0 6px;letter-spacing:-.01em}
+h2{font:400 26px/1.15 var(--serif);margin:28px 0 10px}
+h3{font-size:12px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--mut);margin:22px 0 8px}
+p{margin:0 0 10px}.mut{color:var(--mut)}.sm{font-size:13px}
+.brand{display:flex;justify-content:space-between;align-items:baseline}
+.brand b{font:italic 400 22px var(--serif)}.brand span{color:var(--mut);font-size:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin:10px 0}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:1px solid var(--line);background:transparent;color:var(--tx);border-radius:999px;padding:8px 14px;font:inherit;font-size:14px;cursor:pointer}
+.chip.on{background:var(--tx);color:#111;border-color:var(--tx)}
+textarea,input[type=text],input[type=number],select{width:100%;background:var(--card2);border:1px solid var(--line);color:var(--tx);border-radius:12px;padding:12px;font:inherit;outline:none}
+textarea{min-height:96px;resize:vertical}textarea:focus,input:focus,select:focus{border-color:#55555c}
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;border:0;border-radius:14px;padding:15px;font:600 16px Inter,system-ui;cursor:pointer;background:var(--acc);color:#fff}
+.btn.sec{background:var(--card2);color:var(--tx);border:1px solid var(--line)}
+.btn.sm{width:auto;padding:9px 14px;font-size:13px;border-radius:10px}
+.btn:disabled{opacity:.45}
+.row{display:flex;gap:10px}.row>*{flex:1}
+nav{position:fixed;left:0;right:0;bottom:0;background:rgba(11,11,12,.92);backdrop-filter:blur(14px);border-top:1px solid var(--line);display:flex;justify-content:center;gap:6px;padding:8px 10px calc(8px + env(safe-area-inset-bottom))}
+nav button{flex:1;max-width:200px;background:none;border:0;color:var(--mut);font:500 13px Inter;padding:10px;border-radius:10px;cursor:pointer}
+nav button.on{color:var(--tx);background:var(--card2)}
+.hide{display:none!important}
+/* grabación */
+#rec{position:fixed;inset:0;background:#000;z-index:20;display:flex;flex-direction:column}
+#rec video{flex:1;min-height:0;width:100%;object-fit:cover;transform:scaleX(-1)}
+#rec .bar{padding:16px 18px calc(18px + env(safe-area-inset-bottom));display:flex;align-items:center;gap:14px;background:#000}
+#rec .t{font:400 30px var(--serif);min-width:74px}
+#rec .hint{position:absolute;top:14px;left:14px;right:14px;background:rgba(0,0,0,.55);padding:10px 12px;border-radius:12px;font-size:13px}
+#count{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font:400 120px var(--serif);pointer-events:none}
+/* progreso */
+.step{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:14px}
+.step:last-child{border:0}.step i{width:9px;height:9px;border-radius:50%;background:var(--line);flex:none}
+.step.run i{background:var(--warn);animation:p 1s infinite}.step.done i{background:var(--ok)}.step.err i{background:var(--bad)}
+.step span{margin-left:auto;color:var(--mut);font-size:12px;text-align:right}
+@keyframes p{50%{opacity:.3}}
+/* informe */
+.hero{display:flex;gap:18px;align-items:center}
+.ring{flex:none;width:112px;height:112px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--acc) calc(var(--v)*1%),var(--card2) 0)}
+.ring div{width:92px;height:92px;border-radius:50%;background:var(--card);display:grid;place-items:center;font:400 44px var(--serif)}
+.bar-row{display:grid;grid-template-columns:118px 1fr 34px;gap:10px;align-items:center;font-size:13px;padding:5px 0}
+.bar-row .tr{height:6px;background:var(--card2);border-radius:4px;overflow:hidden}.bar-row .tr b{display:block;height:100%;border-radius:4px}
+.bar-row em{font-style:normal;text-align:right;font-variant-numeric:tabular-nums}
+.find{border-left:3px solid var(--line);padding:4px 0 4px 14px;margin:16px 0}
+.find.s3{border-color:var(--bad)}.find.s2{border-color:var(--warn)}.find.s1{border-color:#666}
+.find b{font:400 21px/1.2 var(--serif);display:block;margin-bottom:4px}
+.find .dr{color:var(--mut);font-size:13px;margin-top:6px}
+.tag{display:inline-block;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);margin-right:8px}
+.tag.rec{color:var(--acc)}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+@media(min-width:560px){.grid{grid-template-columns:repeat(4,1fr)}}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px}
+.kpi b{font:400 26px var(--serif);display:block}.kpi span{font-size:12px;color:var(--mut)}
+.kpi small{display:block;font-size:11px;margin-top:2px}
+video.pl{width:100%;max-height:52vh;border-radius:14px;background:#000}
+canvas#tl{width:100%;height:92px;display:block;border-radius:10px;background:var(--card2);cursor:pointer}
+.mom{display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);cursor:pointer;font-size:14px}
+.mom:last-child{border:0}.mom time{color:var(--acc);font-variant-numeric:tabular-nums;min-width:40px}
+.seg{cursor:pointer;border-radius:4px}.seg:hover{background:var(--card2)}
+mark{background:rgba(255,90,54,.28);color:inherit;border-radius:3px;padding:0 2px}
+mark.h{background:rgba(242,193,78,.25)}
+.md h4{font:400 20px var(--serif);margin:16px 0 6px}.md ul{padding-left:20px;margin:6px 0}.md li{margin:4px 0}
+.sess{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);cursor:pointer}
+.sess:last-child{border:0}.sess .sc{font:400 28px var(--serif);min-width:44px}
+.sess small{color:var(--mut);display:block}
+.kb{border-bottom:1px solid var(--line);padding:14px 0}.kb:last-child{border:0}.kb b{font:400 20px/1.2 var(--serif);display:block;margin:2px 0 4px}
+.ev{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut)}.ev.s{color:var(--ok)}.ev.d{color:var(--warn)}.ev.n{color:var(--acc)}
+.why{font-size:13px;margin-top:8px;padding:8px 10px;background:var(--card2);border-radius:10px}
+.pw{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--line)}.pw:last-child{border:0}.pw button{flex:none}
+#rec .hint{max-height:38vh;overflow:auto;font-size:15px;line-height:1.45}
+.toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);background:var(--tx);color:#111;padding:10px 16px;border-radius:999px;font-size:13px;z-index:50}
+details summary{cursor:pointer;color:var(--mut);font-size:13px}
+</style>
+</head>
+<body>
+<main>
+  <div class="brand"><b>Rétor</b><span id="brandsub">entrenador de comunicación</span></div>
+
+  <section id="v-train">
+    <h1>¿Qué vas a comunicar?</h1>
+    <p class="mut">Dale el contexto, graba o sube el vídeo, y te digo sin anestesia qué falla.</p>
+    <h3>Modo de entrenamiento</h3>
+    <div class="chips" id="modes"></div>
+    <p class="mut sm" id="streak" style="margin:10px 0 0"></p>
+    <div id="mode-panel"></div>
+    <h3>Tipo</h3>
+    <div class="chips" id="types"></div>
+    <h3>Contexto</h3>
+    <textarea id="ctx" placeholder="Ej.: Entrevista para Project Manager en EDF. Entrevistador técnico, 30 min. Quiero transmitir liderazgo en proyectos nucleares y responder a «háblame de ti» en 2 minutos."></textarea>
+    <div class="row" style="margin-top:10px">
+      <div><h3 style="margin-top:6px">Idioma del vídeo</h3><div class="chips" id="langs"></div></div>
+      <div id="target-wrap"><h3 style="margin-top:6px">Duración objetivo (s)</h3><input id="target" type="number" inputmode="numeric" placeholder="opcional"></div>
+    </div>
+    <div style="height:18px"></div>
+    <button class="btn" id="b-rec">● Grabar ahora</button>
+    <div style="height:10px"></div>
+    <button class="btn sec" id="b-up">Subir vídeo</button>
+    <input type="file" id="file" accept="video/*,audio/*" class="hide">
+    <details style="margin-top:18px"><summary>Ajustes de análisis</summary>
+      <div class="card">
+        <h3 style="margin-top:0">Modelo de transcripción (Whisper, local)</h3>
+        <select id="wmodel">
+          <option value="Xenova/whisper-tiny">Tiny — rápido, menos preciso (~40 MB)</option>
+          <option value="Xenova/whisper-base">Base — equilibrado (~80 MB)</option>
+          <option value="Xenova/whisper-small">Small — el más preciso, lento en móvil (~250 MB)</option>
+        </select>
+        <label class="sm" style="display:flex;gap:8px;margin-top:10px;align-items:center"><input type="checkbox" id="wgpu"> Acelerar con WebGPU si está disponible (experimental)</label>
+        <p class="mut sm" style="margin-top:10px">Todo se procesa en tu dispositivo. Los modelos se descargan una vez y quedan en caché. El vídeo no sale de aquí ni se guarda; solo se guardan métricas y transcripción.</p>
+      </div>
+    </details>
+  </section>
+
+  <section id="v-run" class="hide">
+    <h1>Analizando…</h1>
+    <p class="mut" id="run-sub">No cierres la pestaña.</p>
+    <div class="card" id="steps"></div>
+    <video id="work" class="hide" muted playsinline preload="auto"></video>
+  </section>
+
+  <section id="v-report" class="hide"></section>
+  <section id="v-history" class="hide"></section>
+  <section id="v-profile" class="hide"></section>
+  <section id="v-kb" class="hide"></section>
+</main>
+
+<div id="rec" class="hide">
+  <video id="cam" autoplay muted playsinline></video>
+  <div class="hint" id="rec-hint"></div>
+  <div id="count"></div>
+  <div class="bar"><div class="t" id="rec-t">0:00</div><button class="btn hide" id="b-next">Siguiente ▶</button><button class="btn" id="b-stop">■ Parar y analizar</button><button class="btn sec sm" id="b-cancel">Cancelar</button></div>
+</div>
+
+<nav>
+  <button data-v="train" class="on">Entrenar</button>
+  <button data-v="history">Historial</button>
+  <button data-v="profile">Perfil</button>
+  <button data-v="kb">Técnicas</button>
+</nav>
+
+<script type="module">
+/* ============ Config ============ */
+const V = { mp:'0.10.14', tf:'3.8.1', llm:'0.2.89' };
+const MP = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${V.mp}`;
+const MODELS = {
+  face:'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',
+  pose:'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task'
+};
+const TYPES = { entrevista:'Entrevista', pitch:'Pitch', presentacion:'Presentación', redes:'Vídeo para redes', negociacion:'Negociación', libre:'Libre' };
+const LANGS = { es:['Español','spanish'], en:['English','english'], fr:['Français','french'] };
+const WPM = { es:[140,180], en:[130,170], fr:[145,185] };
+const AREAS = { voz:'Voz', ritmo:'Ritmo y fluidez', mirada:'Mirada', expresion:'Expresión facial', cuerpo:'Cuerpo y gestos', mensaje:'Mensaje', pron:'Pronunciación' };
+const WEIGHTS = { voz:1, ritmo:1.2, mirada:1, expresion:.7, cuerpo:.8, mensaje:1.3, pron:.8 };
+
+const LEX = {
+  es:{ fill:['o sea','en plan','eh','ehm','em','mmm','digamos','básicamente','literalmente','a ver','la verdad es que','como que','de alguna manera','¿sabes?','¿vale?','por así decirlo','y tal'],
+       soft:['bueno','pues','entonces','nada','vale'], tag:/,\s*¿?(no|vale|sabes|verdad)\?/giu,
+       hedge:['creo que','supongo','quizás','quizá','tal vez','a lo mejor','un poco','más o menos','intentaré','intentar','no sé si','diría que','en principio','me parece que'],
+       weakOpen:/^(bueno|pues|vale|ok|a ver|eh|hola,? (bueno|pues)|nada)\b/iu, weakClose:/(y nada|eso es todo|y ya está|y poco más|no sé|y eso)\W*$/iu },
+  en:{ fill:['um','uh','uhm','er','you know','i mean','kind of','sort of','basically','actually','literally','honestly','to be honest','or something','and stuff'],
+       soft:['so','well','okay','ok','right','like'], tag:/,\s*(right|you know|like)\s*[?,]/giu,
+       hedge:['i think','i guess','maybe','perhaps','i feel like','hopefully','try to','a little bit','a bit','probably','i would say','not sure'],
+       weakOpen:/^(so|ok|okay|well|um|uh|alright|hi,? so)\b/iu, weakClose:/(that'?s it|that'?s all|and yeah|so yeah|i guess|i don'?t know)\W*$/iu },
+  fr:{ fill:['euh','heu','ben','bah','du coup','en fait','genre','voilà','tu vois','vous voyez','en gros','hein','c\'est-à-dire','comment dire','en quelque sorte'],
+       soft:['donc','alors','enfin','bon','bref'], tag:/\s(quoi|hein)\s*[.,!?]/giu,
+       hedge:['je pense que','je crois que','peut-être','un peu','j\'imagine','plus ou moins','j\'essaie','je dirais','il me semble','a priori'],
+       weakOpen:/^(bon|alors|donc|euh|ben|du coup|voilà)\b/iu, weakClose:/(voilà|c'est tout|et voilà|je sais pas|quoi)\W*$/iu }
+};
+
+const CAT = {
+  pace_fast:['ritmo','Hablas demasiado rápido','Lee 1 min de texto con metrónomo mental: marca un punto y respira 1 s completo en cada punto. Grábalo y baja 20 palabras/min.'],
+  pace_slow:['ritmo','Vas lento: pierdes energía','Repite el vídeo recortando un 20 % de tiempo sin quitar ideas. Fuerza frases más cortas.'],
+  no_pauses:['ritmo','No respiras: no hay pausas','Ejercicio de «punto y silencio»: tras cada idea clave, 2 segundos callado mirando a cámara.'],
+  long_pauses:['ritmo','Te quedas en blanco','Prepara 3 frases-puente y la estructura en 3 bloques antes de grabar; ensaya solo las transiciones.'],
+  fillers:['ritmo','Muletillas','Regraba 60 s: cada vez que notes venir la muletilla, cállate. El silencio suena a seguridad; la muletilla, a duda.'],
+  monotone:['voz','Voz monótona','Lee un párrafo exagerando la entonación al 200 % (sube en las preguntas, baja y frena en la idea clave). Luego regraba al 130 %.'],
+  flat_volume:['voz','Volumen plano','Elige 3 palabras clave del mensaje y dales golpe de volumen; baja casi a susurro una vez para contrastar.'],
+  eye:['mirada','No miras a cámara','Pega un punto de color junto a la lente y habla solo a ese punto. Mueve tus notas justo debajo de la cámara o elimínalas.'],
+  no_smile:['expresion','Cara seria todo el vídeo','Sonríe en el saludo y en el cierre, como mínimo. Graba los primeros 10 s tres veces hasta que salga natural.'],
+  flat_face:['expresion','Cara inexpresiva','Cuenta la misma idea como se la contarías a un amigo en un bar; luego repite manteniendo esa cara.'],
+  head_tilt:['cuerpo','Cabeza ladeada','Alinea la cámara a la altura de los ojos y comprueba en la previsualización que la línea de los ojos queda horizontal.'],
+  sway:['cuerpo','Te balanceas','De pie: pies al ancho de caderas y peso repartido. Sentado: espalda sin apoyar y pies en el suelo.'],
+  hands_hidden:['cuerpo','Manos fuera de plano','Aleja la cámara hasta ver de cintura para arriba y gesticula a la altura del pecho al enumerar o contrastar ideas.'],
+  hands_over:['cuerpo','Gesticulas sin parar','Posición base: manos juntas a la altura del ombligo. Solo salen para marcar una idea y vuelven.'],
+  face_touch:['cuerpo','Te tocas la cara','Ocupa las manos: posición base y gesto deliberado. Tocarse la cara se lee como nervios o duda.'],
+  shoulders:['cuerpo','Hombros desnivelados','Antes de grabar: hombros arriba, atrás y abajo. Revisa el encuadre en la previsualización.'],
+  framing:['cuerpo','Mal encuadre','Cámara a la altura de los ojos, ojos en el tercio superior, cabeza y hombros visibles, luz de frente.'],
+  hedging:['mensaje','Lenguaje dubitativo','Reescribe el guion quitando «creo que / quizás / un poco». Afirma: «Hice X y conseguí Y».'],
+  long_sent:['mensaje','Frases interminables','Regla: una idea por frase, máx. ~20 palabras. Corta en cada «y», «que» o «porque» que encadenes.'],
+  no_data:['mensaje','Cero datos concretos','Añade 2–3 cifras o resultados verificables (%, €, plazos, tamaño de equipo). Sin números, no es creíble.'],
+  weak_open:['mensaje','Arranque flojo','Escribe y memoriza solo la primera frase: directa al mensaje, sin «bueno», «pues» ni saludos de relleno.'],
+  weak_close:['mensaje','Cierre que se desinfla','Escribe y memoriza la última frase: conclusión o petición concreta. Dila, sonríe y calla.'],
+  pron:['pron','Pronunciación que resta claridad','Shadowing: escucha cada palabra marcada, repítela 5 veces exagerando el sonido y regraba la frase entera.'],
+  recall:['mensaje','No te sabías el texto','Memoriza por bloques: idea clave de cada párrafo + primera frase literal. Recita de pie y sin mirar antes de grabar.'],
+  duration:['mensaje','Duración fuera de objetivo','Recorta o amplía por bloques: apunta los segundos de cada bloque y ajusta el más largo.']
+};
+
+/* ============ Base de técnicas (investigación) ============ */
+const KCAT={neg:'Negociación',per:'Persuasión',est:'Estructura',voz:'Voz',cue:'Cuerpo',mito:'Mitos'};
+const EV={s:'evidencia sólida',m:'evidencia media',p:'práctica profesional',d:'discutida',n:'nueva · sin verificar'};
+const KB=[
+ {id:'mirror',c:'neg',t:'Espejo (mirroring)',d:'Repite las últimas 1–3 palabras de tu interlocutor con tono de pregunta y calla. Le invita a ampliar y revela información sin que tengas que preguntar.',s:'Chris Voss (ex-negociador de rehenes del FBI), Never Split the Difference, 2016',e:'p'},
+ {id:'label',c:'neg',t:'Etiquetar emociones',d:'«Parece que te preocupa…». Nombrar la emoción del otro reduce su intensidad y genera confianza. Evita empezar por «yo creo que».',s:'Voss 2016; Lieberman et al. 2007 (affect labeling)',e:'m'},
+ {id:'calibrated',c:'neg',t:'Preguntas calibradas',d:'Cambia «¿por qué?» y las preguntas de sí/no por «¿cómo…?» y «¿qué…?» («¿Cómo se supone que voy a hacer eso?»). El otro trabaja en tu problema sin sentirse atacado.',s:'Voss 2016',e:'p'},
+ {id:'audit',c:'neg',t:'Auditoría de acusaciones',d:'Di tú primero lo peor que pueden pensar de ti («Vais a pensar que soy demasiado júnior para esto…»). Desactiva la objeción antes de que la formulen.',s:'Voss 2016',e:'p'},
+ {id:'bcsm',c:'neg',t:'Escalera de cambio de conducta del FBI',d:'Escucha activa → empatía → sintonía → influencia → cambio. Si intentas persuadir antes de demostrar que entiendes, generas resistencia.',s:'Vecchi, Van Hasselt & Romano 2005 (negociación de crisis del FBI)',e:'p'},
+ {id:'anchor',c:'neg',t:'Anclaje',d:'La primera cifra sobre la mesa arrastra el resultado final. Si conoces el mercado, abre tú y con una cifra ambiciosa y justificada.',s:'Tversky & Kahneman 1974; Galinsky & Mussweiler 2001',e:'s'},
+ {id:'batna',c:'neg',t:'Intereses, no posiciones (y tu BATNA)',d:'Pregunta para qué quiere el otro lo que pide y negocia sobre intereses. Ten clara tu mejor alternativa si no hay acuerdo: de ahí sale tu poder.',s:'Fisher & Ury, Getting to Yes, 1981',e:'p'},
+ {id:'silence',c:'neg',t:'Silencio estratégico',d:'Tras una propuesta o una pregunta, calla 3 segundos o más. En negociación, los silencios largos se asociaron a mejores acuerdos; en un discurso, la pausa da peso a lo que acabas de decir.',s:'Curhan et al. 2021 (Journal of Applied Psychology)',e:'m'},
+ {id:'scharff',c:'neg',t:'Técnica Scharff (obtener información)',d:'Tono amistoso, aparentar que ya lo sabes casi todo y afirmar en vez de preguntar: el otro confirma o corrige sin notar que informa. Rindió más que las preguntas directas en experimentos.',s:'Granhag, Oleszkiewicz et al. 2013–2016',e:'m'},
+ {id:'elicit',c:'neg',t:'Elicitación (contrainteligencia)',d:'La gente tiende a corregir errores y a corresponder confidencias: una afirmación deliberadamente inexacta o una confidencia propia sacan más datos que una pregunta directa. Conócela también para detectarla.',s:'Folleto «Elicitation Techniques» del FBI',e:'p'},
+ {id:'cialdini',c:'per',t:'Principios de influencia',d:'Reciprocidad, compromiso y coherencia, prueba social, autoridad, simpatía, escasez y unidad. Elige uno o dos por mensaje, por ejemplo prueba social («tres plantas ya lo usan») y autoridad.',s:'Cialdini, Influence, 1984/2021',e:'s'},
+ {id:'because',c:'per',t:'Da una razón («porque»)',d:'Las peticiones acompañadas de un motivo se aceptan más, sobre todo cuando lo que pides es pequeño.',s:'Langer, Blank & Chanowitz 1978',e:'m'},
+ {id:'loss',c:'per',t:'Enmarca en pérdidas',d:'Pesa más lo que se puede perder que lo que se puede ganar: «cada mes sin esto perdéis X» mueve más que «ganaréis X».',s:'Kahneman & Tversky 1979 (teoría prospectiva)',e:'s'},
+ {id:'warmth',c:'per',t:'Primero calidez, luego competencia',d:'Juzgamos primero si alguien es de fiar y después si es capaz. Sonrisa real y cercanía al empezar; los datos, después.',s:'Fiske, Cuddy & Glick 2007',e:'s'},
+ {id:'thin',c:'per',t:'Los primeros 30 segundos',d:'Las impresiones formadas con fragmentos muy breves de conducta no verbal predicen evaluaciones posteriores. Ensaya el arranque más que ninguna otra parte.',s:'Ambady & Rosenthal 1993',e:'s'},
+ {id:'clt',c:'per',t:'Tácticas de liderazgo carismático',d:'Metáforas, historias, contrastes («no es X, es Y»), preguntas retóricas, listas de tres, convicción moral y metas ambiciosas. Directivos entrenados en ellas mejoraron sus valoraciones de liderazgo.',s:'Antonakis, Fenley & Liechti 2011',e:'s'},
+ {id:'powerless',c:'per',t:'Lenguaje sin poder',d:'Muletillas, atenuadores («un poco», «creo que») y coletillas («¿no?») reducen la credibilidad y la competencia que te atribuyen.',s:'Erickson, Lind, Johnson & O\'Barr 1978; Hosman 1989',e:'s'},
+ {id:'concrete',c:'per',t:'Concreción y cifras',d:'Lo concreto se recuerda y se cree más que lo abstracto. Cambia «mejoré el proceso» por «reduje el plazo de 12 a 7 semanas».',s:'Heath & Heath, Made to Stick, 2007',e:'p'},
+ {id:'pyramid',c:'est',t:'Conclusión primero (pirámide / BLUF)',d:'Empieza por la respuesta y sigue con 2–3 argumentos que la sostienen. Es el estándar en consultoría y en informes militares y de inteligencia («bottom line up front»).',s:'Minto, The Pyramid Principle; norma BLUF del ejército de EE. UU.',e:'p'},
+ {id:'star',c:'est',t:'Método STAR',d:'Situación, Tarea, Acción, Resultado: poco contexto, la mayor parte en lo que hiciste tú y un resultado medible al final. Evita las respuestas que divagan.',s:'Práctica estándar de entrevista conductual',e:'p'},
+ {id:'monroe',c:'est',t:'Secuencia motivadora de Monroe',d:'Atención → necesidad → solución → visualización → acción. Estructura clásica para discursos que piden hacer algo.',s:'Alan Monroe, Purdue, años 30',e:'p'},
+ {id:'primacy',c:'est',t:'Primacía y recencia',d:'Se recuerda mejor lo primero y lo último. Mensaje clave al inicio y repetido en el cierre; lo secundario, en medio.',s:'Murdock 1962 (efecto de posición serial)',e:'s'},
+ {id:'three',c:'est',t:'Regla de tres',d:'Agrupar en tres ideas facilita el recuerdo y suena completo.',s:'Retórica clásica; Antonakis et al. 2011',e:'p'},
+ {id:'rate',c:'voz',t:'Velocidad',d:'Hablar algo más rápido que la media se asocia a competencia percibida, pero la comprensión cae si te atropellas. Varía: ágil en el relato, lento en la idea clave.',s:'Miller et al. 1976; Smith & Shaffer 1995',e:'m'},
+ {id:'pitchlow',c:'voz',t:'Tono grave y final descendente',d:'Las voces más graves se perciben como más dominantes y competentes. No fuerces la voz: basta con terminar las frases hacia abajo, no en pregunta.',s:'Klofstad, Anderson & Peters 2012',e:'m'},
+ {id:'charisma_voice',c:'voz',t:'Variación vocal',d:'Los oradores percibidos como carismáticos usan más rango de tono y de intensidad. La monotonía se lee como desinterés.',s:'Rosenberg & Hirschberg 2009',e:'m'},
+ {id:'dj',c:'voz',t:'Voz de «locutor de madrugada»',d:'Grave, lenta y descendente para afirmar algo sin provocar; voz positiva y sonriente como tono por defecto.',s:'Voss 2016',e:'p'},
+ {id:'gaze',c:'cue',t:'Contacto visual',d:'El contacto visual que resulta cómodo dura de media unos 3 segundos seguidos. En vídeo, mirar a la lente equivale a mirar a los ojos.',s:'Binetti et al. 2016 (Royal Society Open Science)',e:'m'},
+ {id:'gesture',c:'cue',t:'Gestos que acompañan',d:'Gesticular ayuda a quien habla a pensar y a quien escucha a entender. Gestos ilustrativos a la altura del pecho, no repetitivos.',s:'Goldin-Meadow, Hearing Gesture, 2003',e:'s'},
+ {id:'pacify',c:'cue',t:'Gestos apaciguadores',d:'Tocarse el cuello, la cara o el pelo y frotarse las manos son conductas de autocalma que el observador lee como estrés o inseguridad. No prueban que alguien mienta.',s:'Joe Navarro (ex-agente del FBI), What Every Body Is Saying, 2008',e:'p'},
+ {id:'steeple',c:'cue',t:'Manos en campanario y palmas visibles',d:'Unir las yemas de los dedos se interpreta como seguridad; mostrar las palmas, como apertura.',s:'Navarro 2008',e:'p'},
+ {id:'power',c:'cue',t:'Posturas expansivas',d:'Una postura abierta antes de hablar puede hacerte sentir más seguro, pero los efectos hormonales del estudio original no se replicaron.',s:'Carney, Cuddy & Yap 2010; Ranehill et al. 2015',e:'d'},
+ {id:'mehrabian',c:'mito',t:'«El 93 % es no verbal» es un mito',d:'La regla 7-38-55 solo se midió con palabras sueltas sobre sentimientos dichas con un tono contradictorio. No significa que el contenido dé igual.',s:'Mehrabian 1967/1971',e:'s'},
+ {id:'lies',c:'mito',t:'No existe el «gesto del mentiroso»',d:'Ni desviar la mirada ni tocarse la nariz detectan mentiras de forma fiable: la precisión humana ronda el 54 %, casi azar.',s:'Bond & DePaulo 2006 (metaanálisis)',e:'s'}
+];
+const FKB={fillers:'powerless',hedging:'powerless',monotone:'charisma_voice',flat_volume:'charisma_voice',eye:'gaze',weak_open:'thin',weak_close:'primacy',no_data:'concrete',no_pauses:'silence',face_touch:'pacify',pace_fast:'rate',long_sent:'pyramid',no_smile:'warmth',hands_hidden:'gesture',flat_face:'warmth'};
+const KTYPE={entrevista:['star','pyramid','concrete','powerless','warmth','thin','primacy','audit','charisma_voice','gaze','gesture','pacify'],pitch:['monroe','clt','loss','cialdini','concrete','primacy','three','anchor','thin','charisma_voice','gaze','gesture'],presentacion:['pyramid','clt','three','primacy','concrete','silence','charisma_voice','gaze','gesture','rate'],redes:['thin','clt','concrete','three','rate','charisma_voice','gaze','warmth'],negociacion:['mirror','label','calibrated','audit','anchor','batna','silence','bcsm','loss','dj','scharff','cialdini'],libre:['pyramid','clt','powerless','concrete','primacy','silence','charisma_voice','gaze','gesture','warmth']};
+
+/* ============ Bancos sin IA ============ */
+const BANK={
+ speech:{
+  es:'Hay una pregunta que me hago cada mañana: ¿qué haría hoy si no tuviera miedo a equivocarme? No es una pregunta cómoda. Es una pregunta útil. Porque casi todo lo que vale la pena empieza con un error: el primer prototipo que no funciona, la primera presentación que sale mal, la primera conversación difícil que evitamos durante semanas. Equivocarse no es lo contrario de avanzar; es el precio de avanzar. Los equipos que más admiro no son los que nunca fallan. Son los que fallan pronto, lo dicen en voz alta y corrigen antes que nadie. Así que hoy os propongo tres cosas. Primero, decidir más rápido. Segundo, contar los errores sin adornos. Y tercero, celebrar al que lo intenta, no solo al que acierta. Porque el miedo no desaparece. Pero se puede hacer pequeño. Y se hace pequeño actuando.',
+  en:'There is a question I ask myself every morning: what would I do today if I were not afraid of being wrong? It is not a comfortable question. It is a useful one. Because almost everything worth doing starts with a mistake: the first prototype that fails, the first presentation that goes badly, the first hard conversation we avoid for weeks. Being wrong is not the opposite of progress; it is the price of progress. The teams I admire most are not the ones that never fail. They are the ones that fail early, say it out loud, and fix it before anyone else. So today I want to suggest three things. First, decide faster. Second, share mistakes without decoration. And third, celebrate the person who tries, not only the one who succeeds. Fear does not disappear. But it can be made small. And it gets small when we act.',
+  fr:'Il y a une question que je me pose chaque matin : que ferais-je aujourd\'hui si je n\'avais pas peur de me tromper ? Ce n\'est pas une question confortable. C\'est une question utile. Parce que presque tout ce qui en vaut la peine commence par une erreur : le premier prototype qui ne fonctionne pas, la première présentation ratée, la première conversation difficile que l\'on évite pendant des semaines. Se tromper n\'est pas le contraire d\'avancer ; c\'est le prix à payer pour avancer. Les équipes que j\'admire le plus ne sont pas celles qui n\'échouent jamais. Ce sont celles qui échouent tôt, le disent à voix haute et corrigent avant les autres. Alors aujourd\'hui, je vous propose trois choses. D\'abord, décider plus vite. Ensuite, raconter les erreurs sans les embellir. Et enfin, féliciter celui qui essaie, pas seulement celui qui réussit. La peur ne disparaît pas. Mais on peut la rendre petite. Et elle devient petite quand on agit.'},
+ topics:{
+  es:['Convénceme de que la energía nuclear es imprescindible','El mejor consejo que has recibido y por qué','Defiende una decisión impopular que tomarías como director','Explica tu trabajo a un niño de diez años','Un fracaso tuyo y qué cambió después','¿Por qué deberíamos contratarte a ti y no a otro?','Vende este bolígrafo en un minuto','La tecnología que más cambiará la industria en diez años','Algo en lo que has cambiado de opinión','Presenta tu ciudad a un inversor extranjero'],
+  en:['Convince me that nuclear energy is essential','The best advice you ever received, and why','Defend an unpopular decision you would make as a director','Explain your job to a ten-year-old','A failure of yours and what changed afterwards','Why should we hire you and not someone else?','Sell me this pen in one minute','The technology that will change industry most in ten years','Something you changed your mind about','Pitch your city to a foreign investor'],
+  fr:['Convainquez-moi que le nucléaire est indispensable','Le meilleur conseil que vous ayez reçu, et pourquoi','Défendez une décision impopulaire que vous prendriez comme directeur','Expliquez votre métier à un enfant de dix ans','Un échec personnel et ce qui a changé ensuite','Pourquoi vous et pas un autre candidat ?','Vendez-moi ce stylo en une minute','La technologie qui changera le plus l\'industrie en dix ans','Un sujet sur lequel vous avez changé d\'avis','Présentez votre ville à un investisseur étranger']},
+ conv:{
+  entrevista:{es:['Háblame de ti en dos minutos.','¿Por qué quieres este puesto y no otro?','Cuéntame una situación en la que tuviste un conflicto con un compañero y cómo lo resolviste.','¿Cuál es tu mayor debilidad? Y no me digas que eres perfeccionista.','¿Qué harías en tus primeros noventa días? Sé concreto.'],
+   en:['Tell me about yourself in two minutes.','Why do you want this role and not another one?','Tell me about a time you had a conflict with a colleague and how you solved it.','What is your biggest weakness? And please do not say you are a perfectionist.','What would you do in your first ninety days? Be specific.'],
+   fr:['Parlez-moi de vous en deux minutes.','Pourquoi ce poste et pas un autre ?','Racontez-moi un conflit avec un collègue et comment vous l\'avez résolu.','Quelle est votre plus grande faiblesse ? Et ne me dites pas que vous êtes perfectionniste.','Que feriez-vous pendant vos quatre-vingt-dix premiers jours ? Soyez concret.']},
+  generic:{es:['Cuéntame de qué va esto en treinta segundos.','No me convence. ¿Qué prueba tienes de que funciona?','¿Y cuál es el mayor riesgo? Sé sincero.','Cambiemos de tema: ¿qué harías con el doble de presupuesto y la mitad de tiempo?','Resume en una sola frase lo que quieres que recuerde.'],
+   en:['Tell me what this is about in thirty seconds.','I am not convinced. What proof do you have that it works?','And what is the biggest risk? Be honest.','Let us change subject: what would you do with twice the budget and half the time?','Sum up in one sentence what you want me to remember.'],
+   fr:['Expliquez-moi de quoi il s\'agit en trente secondes.','Je ne suis pas convaincu. Quelle preuve avez-vous que ça marche ?','Et quel est le plus grand risque ? Soyez honnête.','Changeons de sujet : que feriez-vous avec le double du budget et la moitié du temps ?','Résumez en une seule phrase ce que je dois retenir.']}}
+};
+const RISK={
+ en:[[/th/i,'«th»: punta de la lengua entre los dientes (think /θ/, this /ð/); no es «t», «d» ni «s».'],[/^s[ptckmnlw]/i,'«s» inicial sin «e» delante: «Spain», no «eSpain».'],[/v/i,'«v» con los dientes sobre el labio inferior; distinta de la «b».'],[/[^e]ed$/i,'Final «-ed»: suena /t/, /d/ o /ɪd/ según el verbo (worked = «workt»), casi nunca «-ed».'],[/^h/i,'«h» aspirada y suave, como un soplo; no es la «j» española.'],[/sh|tion$/i,'/ʃ/: el sonido de mandar callar; no es «s» ni «ch».'],[/^(j|ge|gi)/i,'/dʒ/: empieza como una «d» («d-yob»); no es «y».']],
+ fr:[[/(?<![oaeq])u(?![iaeo])|û/i,'«u» /y/: labios de «u» y lengua de «i»; no es «ou».'],[/(an|en|on|in|un|ain|ein|om|am)(?![naeiouyémh])/i,'Vocal nasal: el aire sale por la nariz y la «n» no se pronuncia.'],[/eu|œu/i,'«eu» /ø/: labios de «o» y lengua de «e».'],[/^(j|ge|gi)/i,'/ʒ/: suave y vibrado; no es «y» ni «ch».'],[/[aeiouyé]s[aeiouyé]|z/i,'«s» entre vocales y «z» suenan /z/, sonora (con vibración).'],[/[stdxp]$/i,'Consonante final normalmente muda (salvo enlace con la palabra siguiente).'],[/r/i,'«r» en la garganta, no con la punta de la lengua.']]
+};
+
+/* ============ Utilidades ============ */
+const $ = s => document.querySelector(s);
+const esc = s => String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const clamp = (v,a=0,b=100)=>Math.max(a,Math.min(b,v));
+const band = (v,lo,hi,tol)=> v>=lo&&v<=hi ? 100 : clamp(100-((v<lo?lo-v:v-hi)/tol)*100);
+const mean = a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:0;
+const std = a=>{ if(a.length<2)return 0; const m=mean(a); return Math.sqrt(mean(a.map(x=>(x-m)**2))); };
+const pct = (a,p)=>{ if(!a.length)return 0; const s=[...a].sort((x,y)=>x-y); return s[Math.min(s.length-1,Math.floor(p*s.length))]; };
+const mmss = t=>{ t=Math.max(0,Math.round(t)); return Math.floor(t/60)+':'+String(t%60).padStart(2,'0'); };
+const sleep = ms=>new Promise(r=>setTimeout(r,ms));
+const r1 = v=>Math.round(v*10)/10;
+function toast(m){ const t=document.createElement('div'); t.className='toast'; t.textContent=m; document.body.append(t); setTimeout(()=>t.remove(),2600); }
+
+/* ============ Almacenamiento (perfil) ============ */
+const KEY='retor.v1';
+let mem={sessions:[],settings:{},notes:''};
+const DB={
+  load(){ try{ const d=JSON.parse(localStorage.getItem(KEY)); if(d&&Array.isArray(d.sessions)) mem=d; }catch(e){} return mem; },
+  save(){ try{ localStorage.setItem(KEY,JSON.stringify(mem)); }catch(e){ toast('No se pudo guardar en este navegador'); } }
+};
+DB.load();
+
+function recurring(excludeId){
+  const last=mem.sessions.filter(s=>s.id!==excludeId).slice(-10), n=last.length, c={};
+  last.forEach(s=>(s.findings||[]).forEach(f=>c[f.id]=(c[f.id]||0)+1));
+  return Object.entries(c).map(([id,k])=>({id,k,n})).filter(x=>x.k>=2&&x.k/n>=.4).sort((a,b)=>b.k-a.k);
+}
+
+/* ============ Audio ============ */
+async function decodeAudio(blob){
+  const AC=window.AudioContext||window.webkitAudioContext, ac=new AC();
+  try{
+    const buf=await ac.decodeAudioData(await blob.arrayBuffer());
+    const n=buf.length, ch=buf.numberOfChannels, mono=new Float32Array(n);
+    for(let c=0;c<ch;c++){ const d=buf.getChannelData(c); for(let i=0;i<n;i++) mono[i]+=d[i]/ch; }
+    return resample(mono,buf.sampleRate,16000);
+  } finally { ac.close&&ac.close(); }
+}
+function resample(x,sr,to){
+  if(sr===to) return x;
+  const ratio=sr/to, n=Math.floor(x.length/ratio), y=new Float32Array(n);
+  for(let i=0;i<n;i++){ const a=Math.floor(i*ratio), b=Math.min(x.length,Math.floor((i+1)*ratio)); let s=0; for(let j=a;j<b;j++) s+=x[j]; y[i]=b>a?s/(b-a):x[a]||0; }
+  return y;
+}
+async function analyzeAudio(x,sr=16000,onp=()=>{}){
+  const hop=Math.round(sr*.02), win=Math.round(sr*.03), nf=Math.max(0,Math.floor((x.length-win)/hop)), db=new Float32Array(nf);
+  for(let f=0;f<nf;f++){ let s=0; const o=f*hop; for(let i=0;i<win;i++) s+=x[o+i]*x[o+i]; db[f]=10*Math.log10(s/win+1e-10); }
+  const floor=pct(db,.1), peak=pct(db,.95), thr=floor+Math.max(6,.3*(peak-floor));
+  const sp=new Uint8Array(nf); for(let f=0;f<nf;f++) sp[f]=db[f]>thr?1:0;
+  const runs=(val)=>{ const r=[]; let s=-1; for(let f=0;f<=nf;f++){ const on=f<nf&&sp[f]===val; if(on&&s<0)s=f; if(!on&&s>=0){r.push([s,f]);s=-1;} } return r; };
+  runs(0).forEach(([a,b])=>{ if((b-a)*.02<.25&&a>0&&b<nf) sp.fill(1,a,b); });
+  runs(1).forEach(([a,b])=>{ if((b-a)*.02<.1) sp.fill(0,a,b); });
+  const speech=runs(1); const dur=x.length/sr;
+  if(!speech.length||peak-floor<8) return {ok:false,dur,db,sp,pauses:[],pitch:[]};
+  const t0=speech[0][0]*.02, t1=speech.at(-1)[1]*.02;
+  const pauses=runs(0).filter(([a,b])=>a>speech[0][0]&&b<speech.at(-1)[1]&&(b-a)*.02>=.5).map(([a,b])=>({t:a*.02,d:(b-a)*.02}));
+  const speakT=speech.reduce((s,[a,b])=>s+(b-a)*.02,0);
+  // tono (autocorrelación normalizada a 8 kHz)
+  const y=resample(x,sr,8000), W=256, H=160, pitch=[];
+  const nfp=Math.max(0,Math.floor((y.length-W-116)/H));
+  for(let f=0;f<nfp;f++){
+    if(f%600===0){ onp(f/nfp); await sleep(0); }
+    if(!sp[Math.min(nf-1,f)]) { pitch.push(0); continue; }
+    const o=f*H; let e0=0; for(let i=0;i<W;i++) e0+=y[o+i]*y[o+i];
+    let best=0,bl=0; const rs=new Float32Array(116);
+    for(let lag=20;lag<116;lag++){ let s=0,e1=0; for(let i=0;i<W;i++){ s+=y[o+i]*y[o+i+lag]; e1+=y[o+i+lag]*y[o+i+lag]; } const r=s/Math.sqrt(e0*e1+1e-12); rs[lag]=r; if(r>best){best=r;bl=lag;} }
+    if(best<.55){ pitch.push(0); continue; }
+    for(let lag=20;lag<bl;lag++) if(rs[lag]>.92*best&&rs[lag]>rs[lag-1]&&rs[lag]>=rs[lag+1]){ bl=lag; break; }
+    pitch.push(8000/bl);
+  }
+  const voiced=pitch.filter(p=>p>0), med=pct(voiced,.5);
+  const st=voiced.map(p=>12*Math.log2(p/med)).filter(s=>Math.abs(s)<12);
+  const sdb=[]; for(let f=0;f<nf;f++) if(sp[f]) sdb.push(db[f]);
+  return { ok:true, dur, db, sp, pauses, pitch, t0, t1, speakT, span:t1-t0,
+    pauseRatio:(t1-t0)>0?1-speakT/(t1-t0):0, longPauses:pauses.filter(p=>p.d>=2.2),
+    pitchMed:med, pitchSt:std(st), volStd:std(sdb), snr:peak-floor };
+}
+function planChunks(a,sr=16000){
+  const N=a.sp.length, out=[]; let s=0; const fps=50;
+  while(s<N){
+    let e=Math.min(N,s+28*fps);
+    if(e<N){ let bestLen=0,bestMid=-1,run=-1; for(let f=s+12*fps;f<Math.min(N,s+29*fps);f++){ if(!a.sp[f]){ if(run<0)run=f; } else if(run>=0){ if(f-run>bestLen){bestLen=f-run;bestMid=(f+run)>>1;} run=-1; } } if(bestMid>0) e=bestMid; }
+    let any=false; for(let f=s;f<e;f++) if(a.sp[f]){any=true;break;}
+    if(any) out.push([Math.round(s*.02*sr),Math.round(e*.02*sr)]);
+    s=e;
+  }
+  return out;
+}
+
+/* ============ Transcripción (Whisper en Web Worker) ============ */
+const WORKER_SRC=`
+import {pipeline,env} from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@${V.tf}';
+env.allowLocalModels=false;
+let asr=null,key='';
+self.onmessage=async e=>{const d=e.data;try{
+ if(d.type==='load'){
+  if(key!==d.model+d.gpu){asr=null;
+   const prog=p=>{if(p.status==='progress')self.postMessage({type:'dl',file:p.file,progress:p.progress});};
+   if(d.gpu){try{asr=await pipeline('automatic-speech-recognition',d.model,{device:'webgpu',dtype:{encoder_model:'fp32',decoder_model_merged:'q4'},progress_callback:prog});}catch(_){asr=null;}}
+   if(!asr)asr=await pipeline('automatic-speech-recognition',d.model,{device:'wasm',dtype:'q8',progress_callback:prog});
+   key=d.model+d.gpu;}
+  self.postMessage({type:'ready'});
+ }else if(d.type==='run'){
+  const out=await asr(d.audio,{language:d.language,task:'transcribe',return_timestamps:true});
+  self.postMessage({type:'result',id:d.id,out});
+ }}catch(err){self.postMessage({type:'error',message:String(err&&err.message||err)});}};`;
+let worker=null;
+function getWorker(){ if(!worker) worker=new Worker(URL.createObjectURL(new Blob([WORKER_SRC],{type:'text/javascript'})),{type:'module'}); return worker; }
+function wcall(msg,onmsg,transfer){ return new Promise((res,rej)=>{ const w=getWorker(); const h=e=>{ const d=e.data; if(d.type==='dl'){onmsg&&onmsg(d);return;} w.removeEventListener('message',h); d.type==='error'?rej(new Error(d.message)):res(d); }; w.addEventListener('message',h); w.onerror=e=>rej(new Error(e.message||'No se pudo cargar el worker de Whisper')); w.postMessage(msg,transfer||[]); }); }
+async function transcribe(x,a,lang,model,gpu,onp){
+  await wcall({type:'load',model,gpu:!!(gpu&&navigator.gpu)},d=>onp(`descargando modelo ${Math.round(d.progress||0)} %`));
+  const chunks=planChunks(a), segs=[];
+  for(let i=0;i<chunks.length;i++){
+    onp(`${i+1}/${chunks.length}`);
+    const [s,e]=chunks[i], off=s/16000, piece=x.slice(s,e);
+    const r=await wcall({type:'run',id:i,audio:piece,language:LANGS[lang][1]},null,[piece.buffer]);
+    const cs=r.out.chunks&&r.out.chunks.length?r.out.chunks:[{timestamp:[0,(e-s)/16000],text:r.out.text||''}];
+    cs.forEach(c=>{ const text=(c.text||'').trim(); if(!text||/^\[.*\]$|^\(.*\)$/.test(text)) return; const t0=off+(c.timestamp?.[0]??0), t1=off+(c.timestamp?.[1]??(e-s)/16000); segs.push({t0,t1:Math.max(t1,t0+.2),text}); });
+  }
+  return segs;
+}
+
+/* ============ Texto ============ */
+const reEsc=s=>s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+const words=s=>(s.match(/[\p{L}\p{N}'’-]+/gu)||[]);
+function analyzeText(segs,lang,durMin){
+  const L=LEX[lang], full=segs.map(s=>s.text).join(' ').replace(/\s+/g,' ').trim();
+  const strong=new RegExp(`(?<![\\p{L}])(${L.fill.map(reEsc).sort((a,b)=>b.length-a.length).join('|')})(?![\\p{L}])`,'giu');
+  const soft=new RegExp(`(?:^|[.!?…]\\s+|,\\s+)(${L.soft.map(reEsc).join('|')})(?=\\s*,)`,'giu');
+  const softStart=new RegExp(`(?:^|[.!?…]\\s+)¿?(${L.soft.map(reEsc).join('|')})(?![\\p{L}])`,'giu');
+  const hedge=new RegExp(`(?<![\\p{L}])(${L.hedge.map(reEsc).sort((a,b)=>b.length-a.length).join('|')})(?![\\p{L}])`,'giu');
+  const fc={}, hc={}, marks=[];
+  const scan=(re,store,cls,grp)=>segs.forEach((s,si)=>{ re.lastIndex=0; let m; while((m=re.exec(s.text))){ const w=(m[grp]||m[0]).toLowerCase().replace(/^[,\s¿]+|[?,.\s]+$/g,''); const at=m.index+m[0].lastIndexOf(m[grp]||m[0]); if(marks.some(k=>k.si===si&&at<k.b&&at+w.length>k.a)){ if(m[0].length===0)re.lastIndex++; continue; } store[w]=(store[w]||0)+1; marks.push({si,a:at,b:at+(m[grp]||m[0]).length,cls,t:s.t0}); if(m[0].length===0)re.lastIndex++; } });
+  scan(strong,fc,'f',1); scan(L.tag,fc,'f',1); scan(soft,fc,'f',1); scan(softStart,fc,'f',1); scan(hedge,hc,'h',1);
+  const sents=full.split(/(?<=[.!?…])\s+/).map(s=>s.trim()).filter(s=>words(s).length>0);
+  const sl=sents.map(s=>words(s).length), W=words(full).length;
+  const nums=(full.match(/\d+([.,]\d+)?\s?(%|€|\$|k\b|M\b)?/g)||[]).length+(full.match(/\b(millones|millón|por ciento|million|billion|percent|pour cent|milliard)\b/giu)||[]).length;
+  const nFill=Object.values(fc).reduce((a,b)=>a+b,0), nHedge=Object.values(hc).reduce((a,b)=>a+b,0);
+  return { full, words:W, sentences:sents.length, avgSent:mean(sl), longSents:sl.filter(n=>n>35).length, nums,
+    fillers:fc, nFill, fillPerMin:durMin>0?nFill/durMin:0, hedges:hc, nHedge, hedgePerMin:durMin>0?nHedge/durMin:0,
+    weakOpen:L.weakOpen.test(sents[0]||''), weakClose:L.weakClose.test(sents.at(-1)||''), first:sents[0]||'', last:sents.at(-1)||'', marks };
+}
+
+/* ============ Visión (MediaPipe Face + Pose) ============ */
+let mp=null;
+async function loadVision(onp){
+  if(mp) return mp;
+  onp('descargando modelos');
+  const lib=await import(MP);
+  const fs=await lib.FilesetResolver.forVisionTasks(MP+'/wasm');
+  const mk=async(Cls,opts,url)=>{ try{ return await Cls.createFromOptions(fs,{baseOptions:{modelAssetPath:url,delegate:'GPU'},...opts}); }catch(e){ return await Cls.createFromOptions(fs,{baseOptions:{modelAssetPath:url,delegate:'CPU'},...opts}); } };
+  const face=await mk(lib.FaceLandmarker,{runningMode:'VIDEO',numFaces:1,outputFaceBlendshapes:true,outputFacialTransformationMatrixes:true},MODELS.face);
+  const pose=await mk(lib.PoseLandmarker,{runningMode:'VIDEO',numPoses:1},MODELS.pose);
+  return mp={face,pose};
+}
+function seek(v,t){ return new Promise(res=>{ let done=false; const f=()=>{ if(done)return; done=true; v.removeEventListener('seeked',f); res(); }; v.addEventListener('seeked',f); v.currentTime=t; setTimeout(f,2000); }); }
+async function fixDuration(v){ if(isFinite(v.duration)&&v.duration>0) return; await new Promise(res=>{ const f=()=>{ if(isFinite(v.duration)){ v.removeEventListener('durationchange',f); res(); } }; v.addEventListener('durationchange',f); v.currentTime=1e101; setTimeout(res,4000); }); v.currentTime=0; await sleep(100); }
+let tsBase=0;
+async function analyzeVideo(v,dur,onp){
+  const {face,pose}=await loadVision(onp);
+  const step=Math.max(.25,dur/800), W=480, cv=document.createElement('canvas'), cx=cv.getContext('2d',{willReadFrequently:false});
+  cv.width=W; cv.height=Math.max(2,Math.round(W*v.videoHeight/v.videoWidth));
+  const fr=[]; let prev=null;
+  for(let t=0,i=0;t<dur;t+=step,i++){
+    await seek(v,Math.min(t,dur-.05)); cx.drawImage(v,0,0,cv.width,cv.height);
+    const ts=(tsBase+=40), o={t};
+    const f=face.detectForVideo(cv,ts);
+    if(f.faceLandmarks&&f.faceLandmarks[0]){
+      const lm=f.faceLandmarks[0]; let x0=1,x1=0,y0=1,y1=0; for(const p of lm){ if(p.x<x0)x0=p.x; if(p.x>x1)x1=p.x; if(p.y<y0)y0=p.y; if(p.y>y1)y1=p.y; }
+      o.face=1; o.fh=y1-y0; o.fx=(x0+x1)/2; o.fy=(y0+y1)/2;
+      const b={}; (f.faceBlendshapes?.[0]?.categories||[]).forEach(c=>b[c.categoryName]=c.score);
+      const m=f.facialTransformationMatrixes?.[0]?.data;
+      if(m){ o.yaw=Math.atan2(m[8],m[10])*57.3; o.pitch=Math.asin(clamp(-m[9],-1,1))*57.3; o.roll=Math.atan2(m[1],m[5])*57.3; }
+      const hz=((b.eyeLookOutLeft||0)-(b.eyeLookInLeft||0)+(b.eyeLookInRight||0)-(b.eyeLookOutRight||0))/2;
+      const up=((b.eyeLookUpLeft||0)+(b.eyeLookUpRight||0))/2, dn=((b.eyeLookDownLeft||0)+(b.eyeLookDownRight||0))/2;
+      o.away=(Math.abs(o.yaw||0)>20||Math.abs(o.pitch||0)>20||Math.abs(hz)>.45||up>.5||dn>.62)?1:0;
+      o.smile=((b.mouthSmileLeft||0)+(b.mouthSmileRight||0))/2;
+      o.ex=[b.browInnerUp||0,((b.browOuterUpLeft||0)+(b.browOuterUpRight||0))/2,((b.browDownLeft||0)+(b.browDownRight||0))/2,o.smile,((b.eyeWideLeft||0)+(b.eyeWideRight||0))/2];
+    }
+    const p=pose.detectForVideo(cv,ts+1); tsBase+=1;
+    const pl=p.landmarks&&p.landmarks[0];
+    if(pl&&pl[11].visibility>.5&&pl[12].visibility>.5){
+      const A=pl[11],B=pl[12], sw=Math.hypot(A.x-B.x,(A.y-B.y)*cv.height/cv.width)||.001;
+      o.pose=1; o.tilt=Math.atan2((A.y-B.y)*cv.height,(A.x-B.x)*cv.width)*57.3; o.mx=((A.x+B.x)/2)/sw;
+      const vis=k=>pl[k].visibility>.6&&pl[k].y<1&&pl[k].y>0&&pl[k].x>0&&pl[k].x<1;
+      o.hands=(vis(15)||vis(16))?1:0;
+      const ar=cv.height/cv.width, d=(a,b)=>Math.hypot(a.x-b.x,(a.y-b.y)*ar)/sw;
+      o.touch=[19,20,15,16].some(k=>vis(k)&&d(pl[k],pl[0])<.42)?1:0;
+      if(prev&&prev.pl){ let sp=0,n=0; [15,16].forEach(k=>{ if(vis(k)&&prev.vis[k]){ sp+=d(pl[k],prev.pl[k])/step; n++; } }); o.gs=n?sp/n:0; }
+      prev={pl,vis:{15:vis(15),16:vis(16)}};
+    } else prev=null;
+    fr.push(o);
+    if(i%8===0){ onp(`${Math.round(100*t/dur)} %`); await sleep(0); }
+  }
+  return summarizeVision(fr,step);
+}
+function summarizeVision(fr,step){
+  const F=fr.filter(o=>o.face), P=fr.filter(o=>o.pose), n=fr.length||1, R={frames:fr.length,step,strip:fr.map(o=>o.face?(o.away?2:1):0)};
+  R.facePct=100*F.length/n; R.posePct=100*P.length/n;
+  if(F.length>=5){
+    R.eye=100*F.filter(o=>!o.away).length/F.length; R.smile=100*F.filter(o=>o.smile>.3).length/F.length;
+    R.expr=mean([0,1,2,3,4].map(k=>std(F.map(o=>o.ex[k])))); R.roll=mean(F.map(o=>o.roll||0)); R.yawStd=std(F.map(o=>o.yaw||0));
+    R.fh=mean(F.map(o=>o.fh)); R.fx=mean(F.map(o=>o.fx)); R.fy=mean(F.map(o=>o.fy));
+    R.awayRuns=[]; let s=-1; fr.forEach((o,i)=>{ const aw=o.face&&o.away; if(aw&&s<0)s=i; if((!aw||i===fr.length-1)&&s>=0){ const d=(i-s)*step; if(d>=3)R.awayRuns.push({t:fr[s].t,d}); s=-1; } });
+  }
+  if(P.length>=5){
+    const tl=P.map(o=>{ let a=Math.abs(o.tilt); if(a>90)a=180-a; return a; });
+    R.tilt=mean(tl); R.sway=std(P.map(o=>o.mx)); R.hands=100*P.filter(o=>o.hands).length/P.length;
+    R.gest=mean(P.filter(o=>o.gs!=null&&o.hands).map(o=>o.gs));
+    R.touches=[]; let s=-1; fr.forEach((o,i)=>{ if(o.touch&&s<0)s=i; if(!o.touch&&s>=0){ if((i-s)*step>=.5)R.touches.push({t:fr[s].t,d:(i-s)*step}); s=-1; } });
+  }
+  return R;
+}
+
+/* ============ Diagnóstico ============ */
+function diagnose(S){
+  const {audio:a,text:x,vis:v,lang,ctx}=S, F=[], sc={}, add=(id,sev,detail)=>F.push({id,sev,detail,area:CAT[id][0],title:CAT[id][1],drill:CAT[id][2]});
+  const [lo,hi]=WPM[lang].map(n=>n+(ctx.type==='redes'?15:0));
+  if(a&&a.ok){
+    const min=a.span/60; S.wpm=x&&min>0?x.words/min:null;
+    sc.voz=Math.round(.65*band(a.pitchSt,2.6,5.5,1.8)+.35*band(a.volStd,3.5,9,2.5));
+    if(a.pitchSt<2.2) add('monotone',a.pitchSt<1.6?3:2,`Tu tono varía solo ±${r1(a.pitchSt)} semitonos (lo expresivo empieza en ~3). Suena a lectura, no a convicción.`);
+    if(a.volStd<3) add('flat_volume',1,`Variación de volumen de ${r1(a.volStd)} dB: todo suena igual de importante, o sea, nada lo es.`);
+    let rit=100;
+    if(S.wpm){ rit=band(S.wpm,lo,hi,45);
+      if(S.wpm>hi+8) add('pace_fast',S.wpm>hi+30?3:2,`${Math.round(S.wpm)} palabras/min; el rango cómodo en ${LANGS[lang][0]} es ${lo}–${hi}. Atropellas las ideas y transmites prisa.`);
+      if(S.wpm<lo-12) add('pace_slow',2,`${Math.round(S.wpm)} palabras/min frente a ${lo}–${hi} recomendadas. El oyente se desconecta.`); }
+    const pr=a.pauseRatio; let ps=band(pr,.1,.3,.15)-Math.min(30,a.longPauses.length*10);
+    if(pr<.07&&a.span>25) add('no_pauses',2,`Solo un ${Math.round(pr*100)} % del tiempo en silencio. Sin pausas no hay énfasis ni tiempo para que te sigan.`);
+    if(a.longPauses.length>=1) add('long_pauses',a.longPauses.length>=3?3:2,`${a.longPauses.length} parón(es) de más de 2 s (el mayor, ${r1(Math.max(...a.longPauses.map(p=>p.d)))} s en ${mmss(a.longPauses.sort((p,q)=>q.d-p.d)[0].t)}). Se nota que buscas qué decir.`);
+    let fs=100;
+    if(x){ fs=clamp(100-(x.fillPerMin-1.5)*13);
+      if(x.fillPerMin>=3){ const top=Object.entries(x.fillers).sort((p,q)=>q[1]-p[1]).slice(0,3).map(([w,k])=>`«${w}» ×${k}`).join(', '); add('fillers',x.fillPerMin>=7?3:2,`${x.nFill} muletillas (${r1(x.fillPerMin)}/min): ${top}. Cada una resta autoridad.`); } }
+    sc.ritmo=Math.round(clamp(.4*rit+.25*clamp(ps)+.35*fs));
+  }
+  if(v&&v.eye!=null){
+    sc.mirada=Math.round(clamp((v.eye-35)/(88-35)*100));
+    if(v.eye<65) add('eye',v.eye<45?3:2,`Miras a cámara el ${Math.round(v.eye)} % del tiempo${v.awayRuns.length?`, con ${v.awayRuns.length} desconexión(es) de más de 3 s`:''}. Quien te ve siente que lees o que dudas.`);
+    sc.expresion=Math.round(.5*clamp(v.smile*4+30)+.5*clamp(v.expr/.07*100));
+    if(v.smile<4) add('no_smile',ctx.type==='entrevista'||ctx.type==='redes'?2:1,`Sonríes en el ${Math.round(v.smile)} % del vídeo. Pareces tenso o distante.`);
+    if(v.expr<.035) add('flat_face',2,`Tu cara apenas se mueve (índice de expresividad ${r1(v.expr*100)}; lo normal está por encima de 5). El mensaje no llega con emoción.`);
+    let c=100, k=0;
+    if(Math.abs(v.roll)>9){ add('head_tilt',1,`Cabeza ladeada ~${Math.round(Math.abs(v.roll))}° de media. Resta firmeza.`); c-=12; }
+    if(v.fh<.14||v.fh>.62||v.fy>.6||Math.abs(v.fx-.5)>.2){ const why=v.fh<.14?'estás demasiado lejos':v.fh>.62?'estás pegado a la cámara':v.fy>.6?'tu cara queda en la mitad inferior del plano':'estás descentrado'; add('framing',1,`Encuadre: ${why}.`); c-=12; }
+    if(v.tilt!=null){
+      if(v.tilt>6){ add('shoulders',1,`Hombros inclinados ~${Math.round(v.tilt)}°.`); c-=10; }
+      if(v.sway>.12){ add('sway',v.sway>.2?2:1,`Te mueves de lado a lado (oscilación de ${Math.round(v.sway*100)} % del ancho de hombros). Distrae y delata nervios.`); c-=v.sway>.2?25:14; }
+      if(v.hands<12){ add('hands_hidden',1,`Tus manos aparecen el ${Math.round(v.hands)} % del tiempo. Sin gestos pierdes la mitad de tu expresividad.`); c-=15; }
+      else if(v.gest>1.6){ add('hands_over',1,`Gesticulación muy alta y constante: el gesto deja de significar algo.`); c-=14; }
+      if(v.touches.length>=2){ add('face_touch',v.touches.length>=4?2:1,`Te llevas la mano a la cara ${v.touches.length} veces (primera en ${mmss(v.touches[0].t)}).`); c-=Math.min(30,v.touches.length*7); }
+    }
+    sc.cuerpo=Math.round(clamp(c));
+  }
+  if(x&&x.words>=15){
+    let m=100;
+    if(x.hedgePerMin>=2.5){ const top=Object.entries(x.hedges).sort((p,q)=>q[1]-p[1]).slice(0,3).map(([w,k])=>`«${w}» ×${k}`).join(', '); add('hedging',x.hedgePerMin>=5?3:2,`${x.nHedge} expresiones de duda (${top}). Suenas a que ni tú te lo crees.`); m-=Math.min(30,x.hedgePerMin*5); }
+    if(x.avgSent>26||x.longSents>=2){ add('long_sent',2,`Media de ${Math.round(x.avgSent)} palabras por frase${x.longSents?` y ${x.longSents} frase(s) de más de 35`:''}. Nadie retiene una idea tan larga.`); m-=18; }
+    if(x.nums===0&&['entrevista','pitch','presentacion'].includes(ctx.type)&&x.words>80){ add('no_data',2,`Ni una cifra en ${x.words} palabras. En ${TYPES[ctx.type].toLowerCase()} eso es hablar sin pruebas.`); m-=18; }
+    if(x.weakOpen){ add('weak_open',2,`Empiezas con «${x.first.slice(0,70)}${x.first.length>70?'…':''}». Los primeros 5 s deciden si te escuchan.`); m-=14; }
+    if(x.weakClose){ add('weak_close',2,`Terminas con «${x.last.slice(-70)}». El cierre es lo que se recuerda y lo regalas.`); m-=14; }
+    if(S.recall&&S.recall.acc<88){ add('recall',S.recall.acc<65?3:2,`Solo reproduces el ${Math.round(S.recall.acc)} % del texto: ${S.recall.dels.length} palabra(s) omitida(s) y ${S.recall.subs.length} cambiada(s).`); m-=Math.min(35,(88-S.recall.acc)*.8); }
+    if(ctx.target&&a){ const d=a.dur, tg=ctx.target; if(d>tg*1.2||d<tg*.7){ add('duration',d>tg*1.5?2:1,`Duras ${mmss(d)} frente a un objetivo de ${mmss(tg)}.`); m-=12; } }
+    sc.mensaje=Math.round(clamp(m));
+  }
+  let ws=0,tot=0; for(const k in sc){ ws+=WEIGHTS[k]; tot+=sc[k]*WEIGHTS[k]; }
+  S.scores=sc; S.overall=ws?Math.round(tot/ws):null;
+  S.findings=F.sort((p,q)=>q.sev-p.sev);
+  S.strengths=Object.entries(sc).filter(([,s])=>s>=82).map(([k])=>k);
+  const M=[];
+  a&&a.ok&&a.longPauses.forEach(p=>M.push({t:p.t,txt:`Parón de ${r1(p.d)} s`}));
+  v&&(v.awayRuns||[]).forEach(p=>M.push({t:p.t,txt:`Mirada fuera de cámara ${Math.round(p.d)} s`}));
+  v&&(v.touches||[]).forEach(p=>M.push({t:p.t,txt:'Mano a la cara'}));
+  (S.segments||[]).forEach(s=>{ const d=s.t1-s.t0, w=words(s.text).length; if(d>=3&&w/d*60>hi+35) M.push({t:s.t0,txt:`Acelerón: ${Math.round(w/d*60)} palabras/min`}); });
+  S.moments=M.sort((p,q)=>p.t-q.t).slice(0,30);
+  return S;
+}
+
+/* ============ Cerebro IA ============ */
+const BR={ gemini:{name:'Google Gemini (gratis, escucha tu audio)',model:'gemini-3.8-flash'}, compat:{name:'Groq u otro compatible con OpenAI (gratis)',model:'llama-3.3-70b-versatile',base:'https://api.groq.com/openai/v1'}, local:{name:'Modelo local en este dispositivo (WebGPU)',model:'Qwen2.5-3B-Instruct-q4f16_1-MLC'} };
+const brain=()=>mem.brain||{p:'none'};
+const brainOn=()=>{ const b=brain(); return b.p==='local'?!!navigator.gpu:(b.p==='gemini'||b.p==='compat')&&!!b.key; };
+let engine=null, engineId='';
+async function ai({system,messages,audio,json,search,status}){
+  const b=brain(), model=b.model||BR[b.p]?.model;
+  if(b.p==='gemini'){
+    const body={contents:messages.map(m=>({role:m.role==='assistant'?'model':'user',parts:[{text:m.content}]})),generationConfig:{temperature:.6,maxOutputTokens:4096}};
+    if(system) body.systemInstruction={parts:[{text:system}]};
+    if(audio) body.contents.at(-1).parts.unshift({inlineData:{mimeType:'audio/wav',data:audio}});
+    if(json&&!search) body.generationConfig.responseMimeType='application/json';
+    const call=async bd=>{ const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':b.key},body:JSON.stringify(bd)}); const j=await r.json().catch(()=>({})); if(!r.ok) throw new Error(j.error?.message||('HTTP '+r.status)); return (j.candidates?.[0]?.content?.parts||[]).map(p=>p.text||'').join(''); };
+    if(search){ try{ return await call({...body,tools:[{google_search:{}}]}); }catch(e){} }
+    return call(body);
+  }
+  if(b.p==='compat'){
+    const msgs=(system?[{role:'system',content:system}]:[]).concat(messages);
+    const r=await fetch((b.base||BR.compat.base).replace(/\/$/,'')+'/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+b.key},body:JSON.stringify({model,messages:msgs,temperature:.6})});
+    const j=await r.json().catch(()=>({})); if(!r.ok) throw new Error(j.error?.message||('HTTP '+r.status)); return j.choices?.[0]?.message?.content||'';
+  }
+  if(b.p==='local'){
+    if(!navigator.gpu) throw new Error('este navegador no tiene WebGPU');
+    const lib=await import(`https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm@${V.llm}/+esm`);
+    if(engineId!==model){ if(engine) await engine.unload(); engine=await lib.CreateMLCEngine(model,{initProgressCallback:p=>status&&status(p.text)}); engineId=model; }
+    const msgs=(system?[{role:'system',content:system}]:[]).concat(messages);
+    const r=await engine.chat.completions.create({messages:msgs,temperature:.6,max_tokens:900}); return r.choices[0].message.content||'';
+  }
+  throw new Error('no hay cerebro IA configurado');
+}
+function parseJSON(t){ t=String(t||''); const a=t.search(/[\[{]/); if(a<0) return null; const open=t[a], close=open==='['?']':'}', b=t.lastIndexOf(close); if(b<a) return null; try{ return JSON.parse(t.slice(a,b+1)); }catch(e){ return null; } }
+const allKB=()=>KB.concat(mem.kb||[]);
+function kbFor(type,n){ const ids=KTYPE[type]||KTYPE.libre, all=allKB(); return ids.map(i=>all.find(k=>k.id===i)).filter(Boolean).concat((mem.kb||[]).slice(-4)).slice(0,n); }
+
+function buildPrompt(S,short){
+  const a=S.audio,x=S.text,v=S.vis,g=S.game||{}, rec=recurring(S.id).map(r=>`${CAT[r.id][1]} (${r.k} de las últimas ${r.n} sesiones)`);
+  const L=[];
+  L.push(`Eres un coach de comunicación de élite, brutalmente honesto y concreto. Nada de halagos de relleno ni generalidades. Respondes en español; cuando propongas reformulaciones del discurso, escríbelas en ${LANGS[S.lang][0]} (el idioma del vídeo).`);
+  L.push(`\nCONTEXTO DEL VÍDEO\nTipo: ${TYPES[S.ctx.type]}\n${S.ctx.text||'(sin contexto adicional)'}${S.ctx.target?`\nDuración objetivo: ${S.ctx.target} s`:''}`);
+  if(g.mode==='memo') L.push(`Ejercicio: discurso memorizado. Fidelidad al texto original: ${S.recall?Math.round(S.recall.acc)+' %':'n/d'}.`);
+  if(g.mode==='improv') L.push(`Ejercicio: improvisación sin preparar sobre el tema «${g.topic}». Valora estructura improvisada y capacidad de sostener una idea.`);
+  if(g.mode==='conv') L.push(`Ejercicio: conversación improvisada. Turnos:\n${(g.turns||[]).map((t,i)=>`${i+1}. Interlocutor: ${t.q}\n   Respuesta: ${t.a||'(ver transcripción)'}`).join('\n')}\nValora si responde a lo que se le pregunta, la rapidez de reacción y el manejo de la presión.`);
+  if(mem.notes) L.push(`\nOBJETIVOS PERSONALES DEL ORADOR\n${mem.notes}`);
+  L.push(`\nMÉTRICAS MEDIDAS AUTOMÁTICAMENTE (duración ${mmss(S.dur)})`);
+  if(a&&a.ok) L.push(`- Ritmo: ${S.wpm?Math.round(S.wpm)+' palabras/min':'n/d'}; silencio ${Math.round(a.pauseRatio*100)} %; parones >2 s: ${a.longPauses.length}\n- Voz: variación de tono ±${r1(a.pitchSt)} semitonos; variación de volumen ${r1(a.volStd)} dB`);
+  if(x) L.push(`- Muletillas: ${x.nFill} (${Object.entries(x.fillers).map(([w,k])=>w+'×'+k).join(', ')||'ninguna'})\n- Expresiones de duda: ${x.nHedge} (${Object.entries(x.hedges).map(([w,k])=>w+'×'+k).join(', ')||'ninguna'})\n- Frases: ${x.sentences}, media ${Math.round(x.avgSent)} palabras; cifras citadas: ${x.nums}`);
+  if(v&&v.eye!=null) L.push(`- No verbal: contacto visual ${Math.round(v.eye)} %; sonrisa ${Math.round(v.smile)} % del tiempo; expresividad facial ${r1(v.expr*100)} (normal > 5); manos visibles ${v.hands!=null?Math.round(v.hands)+' %':'n/d'}; toques de cara ${v.touches?v.touches.length:'n/d'}; balanceo ${v.sway!=null?Math.round(v.sway*100)+' %':'n/d'}`);
+  L.push(`- Fallos detectados: ${S.findings.map(f=>f.title).join('; ')||'ninguno'}`);
+  if(rec.length) L.push(`\nERRORES RECURRENTES DE SU PERFIL (sesiones anteriores)\n- ${rec.join('\n- ')}`);
+  L.push(`\nBASE DE TÉCNICAS (úsala: cuando recomiendes algo, nombra la técnica y su fuente, y di qué efecto consigue; no inventes estudios ni cites nada que no esté aquí o que no conozcas con certeza)\n${kbFor(S.ctx.type,short?6:14).map(k=>`- ${k.t}: ${k.d} [${k.s}; ${EV[k.e]||''}]`).join('\n')}`);
+  L.push(`\nTRANSCRIPCIÓN\n"""\n${(x?x.full:'(sin transcripción)').split(' ').slice(0,short?700:1500).join(' ')}\n"""`);
+  L.push(`\nTU RESPUESTA (máx. 500 palabras, en este orden):\n#### Veredicto\nDos frases: ¿cumple el objetivo del contexto? ¿Convencería a esa audiencia?\n#### Mensaje\nEstructura, claridad, adecuación al contexto y a la audiencia, qué sobra y qué falta. Cita frases literales de la transcripción como prueba.\n#### Los 3 fallos que más daño hacen\nCada uno con evidencia (dato o cita) y cómo corregirlo. Si coincide con un error recurrente de su perfil, dilo.\n#### Técnicas que debería haber usado\n2–3 técnicas de la base, aplicadas a frases concretas suyas: «si aquí usas X, consigues Y».\n#### Reescritura\nReescribe la primera frase y la frase de cierre para que impacten.\n#### Plan para la próxima grabación\n3 ejercicios concretos y medibles.`);
+  return L.join('\n');
+}
+function md(s){ return esc(s).replace(/^#{2,4}\s*(.+)$/gm,'<h4>$1</h4>').replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/^(?:[-*•]|\d+[.)])\s+(.+)$/gm,'<li>$1</li>').replace(/(<li>[\s\S]*?<\/li>)(?!\s*<li>)/g,'<ul>$1</ul>').replace(/\n{2,}/g,'<br><br>').replace(/\n/g,' '); }
+async function runCoach(S){
+  const box=$('#coach'), st=$('#llm-status'); if(!brainOn()){ if(st) st.textContent='Configura el cerebro IA en Perfil.'; return; }
+  try{ if(st) st.textContent='El coach está pensando…';
+    const out=await ai({messages:[{role:'user',content:buildPrompt(S,brain().p==='local')}],status:t=>st&&(st.textContent=t)});
+    S.coach=out; persist(S); if($('#coach')===box&&box) box.innerHTML=md(out); if(st) st.textContent='';
+  }catch(e){ if(st) st.textContent='El cerebro IA falló: '+(e.message||e); }
+}
+
+/* ============ Pronunciación y fidelidad al texto ============ */
+const norm=w=>w.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[’']/g,"'");
+function align(expT,heardT){
+  const E=words(expT), H=words(heardT), n=E.length, m=H.length; if(!n) return null;
+  const en=E.map(norm), hn=H.map(norm), D=Array.from({length:n+1},()=>new Uint16Array(m+1));
+  for(let i=0;i<=n;i++) D[i][0]=i; for(let j=0;j<=m;j++) D[0][j]=j;
+  for(let i=1;i<=n;i++) for(let j=1;j<=m;j++) D[i][j]=Math.min(D[i-1][j]+1,D[i][j-1]+1,D[i-1][j-1]+(en[i-1]===hn[j-1]?0:1));
+  let i=n,j=m,ok=0; const subs=[],dels=[];
+  while(i>0||j>0){
+    if(i>0&&j>0&&en[i-1]===hn[j-1]&&D[i][j]===D[i-1][j-1]){ ok++; i--; j--; }
+    else if(i>0&&j>0&&D[i][j]===D[i-1][j-1]+1){ subs.unshift({e:E[i-1],h:H[j-1]}); i--; j--; }
+    else if(i>0&&D[i][j]===D[i-1][j]+1){ dels.unshift(E[i-1]); i--; }
+    else j--;
+  }
+  return {acc:100*ok/n,subs,dels,n};
+}
+function riskWords(text,lang){ const R=RISK[lang]; if(!R) return []; const seen=new Set(), out=[], W=[...new Set(words(text).filter(w=>w.length>=4))]; R.forEach(([re,tip])=>{ const w=W.find(w=>!seen.has(w)&&re.test(w)); if(w){ seen.add(w); out.push({w,tip}); } }); return out; }
+function wavB64(x,sr=16000){ const n=x.length, b=new DataView(new ArrayBuffer(44+n*2)), ws=(o,s)=>[...s].forEach((c,i)=>b.setUint8(o+i,c.charCodeAt(0)));
+  ws(0,'RIFF'); b.setUint32(4,36+n*2,true); ws(8,'WAVEfmt '); b.setUint32(16,16,true); b.setUint16(20,1,true); b.setUint16(22,1,true); b.setUint32(24,sr,true); b.setUint32(28,sr*2,true); b.setUint16(32,2,true); b.setUint16(34,16,true); ws(36,'data'); b.setUint32(40,n*2,true);
+  for(let i=0;i<n;i++) b.setInt16(44+i*2,Math.max(-1,Math.min(1,x[i]))*32767,true);
+  const u=new Uint8Array(b.buffer); let s=''; for(let i=0;i<u.length;i+=0x8000) s+=String.fromCharCode.apply(null,u.subarray(i,i+0x8000)); return btoa(s); }
+async function runPron(S){
+  const st=$('#pron-status'); if(S.lang==='es'||brain().p!=='gemini'||!brainOn()||!state.pcm) return;
+  try{ if(st) st.textContent='El cerebro IA está escuchando tu pronunciación…';
+    const t0=Math.max(0,Math.floor(((S.audio&&S.audio.t0)||0)*16000)), pcm=state.pcm.subarray(t0,t0+16000*150);
+    const txt=await ai({json:true,audio:wavB64(pcm),messages:[{role:'user',content:`Escucha este audio: un hispanohablante nativo hablando en ${LANGS[S.lang][0]}. Eres profesor de fonética. Devuelve SOLO JSON con esta forma: {"nota":0-100,"resumen":"una frase en español sobre su acento e inteligibilidad","errores":[{"palabra":"palabra tal como debería decirse","problema":"qué sonido pronuncia mal y cómo suena lo que dice (en español)","como":"cómo corregirlo, con transcripción IPA y una aproximación para hispanohablantes"}]}. Máximo 8 errores, solo los que realmente se oyen en el audio y más afectan a la claridad, incluidos acento de palabra, ritmo y entonación si procede. Si pronuncia bien, lista vacía. Transcripción aproximada como referencia: """${(S.text?.full||'').slice(0,2500)}"""`}]});
+    const j=parseJSON(txt); if(!j||!Array.isArray(j.errores)) throw new Error('respuesta no válida');
+    S.pron={...(S.pron||{}),ai:{nota:clamp(+j.nota||0),resumen:String(j.resumen||''),errores:j.errores.slice(0,8).map(e=>({w:String(e.palabra||''),p:String(e.problema||''),c:String(e.como||'')}))}};
+    S.scores.pron=Math.round(S.pron.ai.nota); S.findings=S.findings.filter(f=>f.id!=='pron');
+    if(S.pron.ai.errores.length>=3||S.pron.ai.nota<70) S.findings.push({id:'pron',sev:S.pron.ai.nota<55?3:2,area:'pron',title:CAT.pron[1],drill:CAT.pron[2],detail:`${S.pron.ai.resumen} Palabras a corregir: ${S.pron.ai.errores.slice(0,4).map(e=>'«'+e.w+'»').join(', ')}.`});
+    S.findings.sort((p,q)=>q.sev-p.sev); rescore(S); persist(S);
+    if(state.cur===S&&!$('#v-report').classList.contains('hide')){ const y=scrollY; renderReport(S,true); scrollTo(0,y); }
+  }catch(e){ if(st) st.textContent='No se pudo analizar la pronunciación con IA: '+(e.message||e); }
+}
+function rescore(S){ let ws=0,tot=0; for(const k in S.scores){ if(S.scores[k]==null) continue; ws+=WEIGHTS[k]; tot+=S.scores[k]*WEIGHTS[k]; } S.overall=ws?Math.round(tot/ws):null; }
+function speak(text,lang,rate=1){ return new Promise(res=>{ try{ if(!window.speechSynthesis) return res(); speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(text); u.lang={es:'es-ES',en:'en-US',fr:'fr-FR'}[lang]||lang; u.rate=rate; let done=false; const f=()=>{ if(!done){ done=true; res(); } }; u.onend=f; u.onerror=f; speechSynthesis.speak(u); setTimeout(f,Math.max(4000,text.length*110)); }catch(e){ res(); } }); }
+
+/* ============ Actualización de la base de técnicas ============ */
+function addKB(arr,via){ if(!Array.isArray(arr)) return 0; mem.kb=mem.kb||[]; const all=allKB(), have=new Set(all.map(k=>norm(k.t))), ids=new Set(all.map(k=>k.id)); let n=0;
+  arr.forEach(k=>{ if(!k||typeof k.t!=='string'||typeof k.d!=='string'||k.t.length>120||k.d.length>600) return; const id=k.id&&/^[\w-]{2,40}$/.test(k.id)?k.id:'x'+norm(k.t).replace(/[^a-z0-9]+/g,'-').slice(0,30); if(ids.has(id)||have.has(norm(k.t))) return;
+    mem.kb.push({id,c:KCAT[k.c]?k.c:'per',t:k.t,d:k.d,s:String(k.s||'').slice(0,200),e:via==='ia'?'n':(EV[k.e]?k.e:'n'),url:/^https:\/\//.test(k.url||'')?k.url:'',via,at:Date.now()}); ids.add(id); have.add(norm(k.t)); n++; });
+  if(n){ if(mem.kb.length>150) mem.kb=mem.kb.slice(-150); DB.save(); } return n; }
+async function checkUpdates(force){
+  let n=0;
+  try{ const r=await fetch('kb.json?'+Date.now(),{cache:'no-store'}); if(r.ok) n+=addKB(await r.json(),'kb.json'); }catch(e){}
+  if(brainOn()&&brain().p!=='local'&&(force||Date.now()-(mem.kbAt||0)>7*864e5)){
+    try{ const txt=await ai({search:true,messages:[{role:'user',content:`Busca investigación o técnicas profesionales de comunicación, persuasión, negociación, oratoria o lenguaje no verbal (estudios revisados por pares, libros de negociadores o agentes del FBI/CIA, Harvard, etc.) que NO estén ya en esta lista:\n${allKB().map(k=>k.t).join('; ')}\n\nDevuelve SOLO un array JSON de 0 a 5 elementos: [{"c":"neg|per|est|voz|cue|mito","t":"nombre corto en español","d":"cómo se aplica y qué efecto consigue, 1–3 frases en español","s":"autor, publicación y año","url":"enlace https a la fuente si lo tienes"}]. Solo incluye lo que puedas atribuir a una fuente real y concreta; si dudas, no lo incluyas.`}]}); n+=addKB(parseJSON(txt),'ia'); mem.kbAt=Date.now(); DB.save(); }catch(e){}
+  }
+  if(n) toast(`${n} técnica(s) nueva(s) en tu base`); return n;
+}
+
+/* ============ Flujo principal ============ */
+const state={mode:'libre',type:TYPES[mem.settings.type]?mem.settings.type:'entrevista',lang:mem.settings.lang||'es',cur:null,url:null,pcm:null,game:{mins:1,ref:'',topic:''}};
+function persist(S){
+  const slim={id:S.id,date:S.date,lang:S.lang,ctx:S.ctx,dur:S.dur,wpm:S.wpm,scores:S.scores,overall:S.overall,findings:S.findings,strengths:S.strengths,moments:S.moments,segments:S.segments,coach:S.coach||'',warn:S.warn,game:S.game?{mode:S.game.mode,mins:S.game.mins,topic:S.game.topic,turns:S.game.turns}:null,recall:S.recall||null,pron:S.pron||null,
+    audio:S.audio&&S.audio.ok?{ok:true,dur:S.audio.dur,pauseRatio:S.audio.pauseRatio,longPauses:S.audio.longPauses,pitchSt:S.audio.pitchSt,pitchMed:S.audio.pitchMed,volStd:S.audio.volStd,span:S.audio.span,t0:S.audio.t0,env:S.audio.env}:null,
+    text:S.text?{...S.text}:null, vis:S.vis||null};
+  const i=mem.sessions.findIndex(s=>s.id===S.id); if(i>=0) mem.sessions[i]=slim; else mem.sessions.push(slim);
+  if(mem.sessions.length>200) mem.sessions=mem.sessions.slice(-200);
+  DB.save();
+}
+function setStep(id,cls,note){ const e=$('#st-'+id); if(!e)return; if(cls)e.className='step '+cls; if(note!=null)e.querySelector('span').textContent=note; }
+async function analyze(blob,game){
+  game=game||{mode:'libre'};
+  const ctx={type:state.type,text:$('#ctx').value.trim(),target:(game.mode==='memo'||game.mode==='improv')?game.mins*60:(+$('#target').value||null)}, lang=state.lang;
+  mem.settings={...mem.settings,type:state.type,lang,wmodel:$('#wmodel').value,wgpu:$('#wgpu').checked}; DB.save();
+  show('run');
+  $('#steps').innerHTML=[['aud','Voz: tono, volumen y pausas'],['asr','Transcripción ('+LANGS[lang][0]+')'],['vis','Comunicación no verbal'],['dx','Diagnóstico']].map(([i,t])=>`<div class="step" id="st-${i}"><i></i>${t}<span></span></div>`).join('');
+  $('#run-sub').textContent=blob.size>300e6?'Vídeo muy pesado: puede tardar o agotar la memoria. Ideal: menos de 5 minutos.':'No cierres la pestaña. La primera vez se descargan los modelos.';
+  const S={id:Date.now().toString(36),date:new Date().toISOString(),lang,ctx,warn:[],game};
+  if(state.url) URL.revokeObjectURL(state.url); state.url=URL.createObjectURL(blob);
+  let x=null;
+  setStep('aud','run');
+  try{ x=await decodeAudio(blob); state.pcm=x; S.audio=await analyzeAudio(x,16000,p=>setStep('aud',null,Math.round(p*100)+' %')); S.dur=S.audio.dur;
+    if(!S.audio.ok){ S.warn.push('No se detectó voz clara en el audio.'); setStep('aud','err','sin voz clara'); } else setStep('aud','done',''); }
+  catch(e){ S.warn.push('No se pudo leer el audio de este archivo.'); setStep('aud','err','sin audio'); }
+
+  const pAsr=(async()=>{ if(!x||!S.audio||!S.audio.ok){ setStep('asr','err','omitida'); return; } setStep('asr','run');
+    try{ S.segments=await transcribe(x,S.audio,lang,$('#wmodel').value,$('#wgpu').checked,n=>setStep('asr',null,n)); setStep('asr','done',''); }
+    catch(e){ S.warn.push('Falló la transcripción: '+e.message); setStep('asr','err','error'); } })();
+
+  const pVis=(async()=>{ const v=$('#work'); setStep('vis','run');
+    try{ v.src=state.url; await new Promise((res,rej)=>{ v.onloadedmetadata=res; v.onerror=()=>rej(new Error('formato no soportado')); setTimeout(()=>rej(new Error('tiempo agotado')),15000); });
+      if(!v.videoWidth) throw new Error('sin pista de vídeo');
+      await fixDuration(v); try{ await v.play(); v.pause(); }catch(_){}
+      const dur=S.dur||v.duration; if(!S.dur) S.dur=dur;
+      S.vis=await analyzeVideo(v,dur,n=>setStep('vis',null,n));
+      if(S.vis.facePct<30) S.warn.push('Tu cara se detecta en menos del 30 % del vídeo: revisa luz y encuadre.');
+      setStep('vis','done','');
+    }catch(e){ S.warn.push('Sin análisis no verbal: '+e.message+'.'); setStep('vis','err',e.message); } })();
+
+  await Promise.all([pAsr,pVis]);
+  setStep('dx','run');
+  if(S.segments&&S.segments.length) S.text=analyzeText(S.segments,lang,(S.audio.span||S.dur)/60);
+  if(S.audio&&S.audio.ok){ const e=[],db=S.audio.db,n=Math.min(240,Math.floor(db.length/5)),k=Math.floor(db.length/Math.max(1,n)); for(let i=0;i<n;i++){ let m=-99; for(let j=i*k;j<(i+1)*k;j++) if(S.audio.sp[j]&&db[j]>m)m=db[j]; e.push(m); } const hi=Math.max(...e),lo=pct(e.filter(v=>v>-99),.05); S.audio.env=e.map(v=>v<=-99?0:Math.round(clamp((v-lo)/(hi-lo+1e-6),.08,1)*100)/100); }
+  if(S.text){ if(game.ref&&words(game.ref).length>=10) S.recall=align(game.ref,S.text.full);
+    if(lang!=='es') S.pron={risk:riskWords(S.text.full,lang)}; }
+  diagnose(S); persist(S); state.cur=S; setStep('dx','done','');
+  renderReport(S,true); show('report');
+  if(brainOn()){ runCoach(S).then(()=>runPron(S)); }
+}
+
+/* ============ Render ============ */
+const col=s=>s>=80?'var(--ok)':s>=60?'var(--warn)':'var(--bad)';
+function renderReport(S,fresh){
+  const a=S.audio,x=S.text,v=S.vis, prevs=mem.sessions.filter(s=>s.id!==S.id&&s.overall!=null), avg=prevs.length?Math.round(mean(prevs.slice(-5).map(s=>s.overall))):null;
+  const rec=new Set(recurring(S.id).map(r=>r.id));
+  const kp=(val,lab,note,c)=>`<div class="kpi"><b>${val}</b><span>${lab}</span>${note?`<small style="color:${c||'var(--mut)'}">${note}</small>`:''}</div>`;
+  const [lo,hi]=WPM[S.lang]; const K=[];
+  if(S.wpm) K.push(kp(Math.round(S.wpm),'palabras/min',`ideal ${lo}–${hi}`));
+  if(a) K.push(kp('±'+r1(a.pitchSt),'semitonos de tono',a.pitchSt<2.2?'monótono':a.pitchSt<=5.5?'expresivo':'muy variable'), kp(Math.round(a.pauseRatio*100)+' %','tiempo en pausa','ideal 10–30 %'));
+  if(x) K.push(kp(x.nFill,'muletillas',r1(x.fillPerMin)+'/min'), kp(x.nHedge,'expresiones de duda'), kp(x.nums,'cifras citadas'));
+  if(v&&v.eye!=null){ K.push(kp(Math.round(v.eye)+' %','mirada a cámara','ideal > 75 %'), kp(Math.round(v.smile)+' %','tiempo sonriendo')); if(v.hands!=null) K.push(kp(Math.round(v.hands)+' %','manos visibles'), kp(v.touches.length,'toques de cara')); }
+  let tx='';
+  if(S.segments&&S.segments.length){ tx=S.segments.map((s,si)=>{ const ms=(x.marks||[]).filter(m=>m.si===si).sort((p,q)=>p.a-q.a); let h='',pos=0; ms.forEach(m=>{ if(m.a<pos)return; h+=esc(s.text.slice(pos,m.a))+`<mark class="${m.cls==='h'?'h':''}">${esc(s.text.slice(m.a,m.b))}</mark>`; pos=m.b; }); h+=esc(s.text.slice(pos)); return `<span class="seg" data-t="${s.t0}">${h}</span> `; }).join(''); }
+  const top=S.findings.slice(0,3), rest=S.findings.slice(3);
+  const fhtml=f=>`<div class="find s${f.sev}"><span class="tag">${AREAS[f.area]}</span>${rec.has(f.id)?'<span class="tag rec">recurrente en tu perfil</span>':''}<b>${esc(f.title)}</b>${esc(f.detail)}<div class="dr">→ ${esc(f.drill)}</div>${(k=>k?`<div class="why"><span class="mut">Qué dice la investigación · </span>${esc(k.d)} <span class="mut">(${esc(k.s)})</span></div>`:'')(allKB().find(k=>k.id===FKB[f.id]))}</div>`;
+  $('#v-report').innerHTML=`
+    <p class="mut sm">${new Date(S.date).toLocaleString('es-ES',{dateStyle:'medium',timeStyle:'short'})} · ${S.game&&S.game.mode&&S.game.mode!=='libre'?MODES[S.game.mode]+' · ':''}${TYPES[S.ctx.type]||'Libre'} · ${LANGS[S.lang][0]} · ${mmss(S.dur||0)}</p>
+    <div class="card hero"><div class="ring" style="--v:${S.overall||0}"><div>${S.overall??'–'}</div></div>
+      <div><h1 style="font-size:30px;margin:0 0 4px">${S.overall==null?'Sin datos suficientes':S.overall>=85?'Sólido. Ahora pule.':S.overall>=70?'Correcto, no memorable.':S.overall>=55?'Hay mucho que arreglar.':'Así no convences.'}</h1>
+      <p class="mut sm" style="margin:0">${avg!=null&&S.overall!=null?`${S.overall-avg>=0?'+':''}${S.overall-avg} frente a tu media reciente (${avg}).`:'Primera referencia de tu perfil.'}${S.strengths.length?' Fuerte en: '+S.strengths.map(k=>AREAS[k].toLowerCase()).join(', ')+'.':''}</p></div></div>
+    ${S.warn&&S.warn.length?`<div class="card sm" style="border-color:var(--warn)">${S.warn.map(esc).join('<br>')}</div>`:''}
+    <div class="card">${Object.entries(AREAS).map(([k,n])=>S.scores[k]==null?`<div class="bar-row mut"><span>${n}</span><div class="tr"></div><em>–</em></div>`:`<div class="bar-row"><span>${n}</span><div class="tr"><b style="width:${S.scores[k]}%;background:${col(S.scores[k])}"></b></div><em>${S.scores[k]}</em></div>`).join('')}</div>
+    <h2>${top.length?'Lo que más daño te hace':'Sin fallos graves detectados'}</h2>
+    ${top.map(fhtml).join('')}
+    ${rest.length?`<details><summary>${rest.length} fallo(s) más</summary>${rest.map(fhtml).join('')}</details>`:''}
+    ${gameHTML(S)}${pronHTML(S)}
+    <h2>Coach IA: mensaje y técnicas</h2>
+    <div class="card"><p class="sm mut">${brainOn()?'Tu cerebro IA juzga el contenido frente al contexto y te dice qué técnicas aplicar.':'Lo de arriba son medidas objetivas. Para juzgar el contenido frente a tu contexto hace falta un modelo de lenguaje: activa un cerebro IA gratuito en Perfil o copia el informe a tu Claude.'}</p>
+      <div class="md" id="coach">${S.coach?md(S.coach):''}</div><p class="sm mut" id="llm-status"></p>
+      <div class="row">${brainOn()?`<button class="btn sec" id="b-llm">${S.coach?'Repetir análisis':'Analizar con IA'}</button>`:''}<button class="btn sec" id="b-copy">Copiar para Claude</button></div>
+      ${brainOn()?'':`<details style="margin-top:10px"><summary>Pegar aquí la respuesta de Claude para guardarla</summary><textarea id="coach-in" style="margin-top:8px"></textarea><div style="height:8px"></div><button class="btn sec sm" id="b-savecoach">Guardar</button></details>`}</div>
+    ${fresh&&state.url&&v?`<h2>Repasa los momentos</h2><video class="pl" id="player" src="${state.url}" controls playsinline></video>`:''}
+    ${(S.audio&&S.audio.env)||(v&&v.strip)?`<h3>Línea de tiempo · energía de voz y mirada</h3><canvas id="tl"></canvas><p class="sm mut" style="margin-top:6px">Barras: energía de la voz (huecos = pausas). Franja inferior: verde mirando a cámara, rojo fuera.</p>`:''}
+    ${S.moments.length?`<div class="card">${S.moments.map(m=>`<div class="mom" data-t="${m.t}"><time>${mmss(m.t)}</time>${esc(m.txt)}</div>`).join('')}</div>`:''}
+    <h2>Métricas</h2><div class="grid">${K.join('')}</div>
+    ${tx?`<h2>Transcripción</h2><p class="sm mut"><mark>muletillas</mark> · <mark class="h">dudas</mark>${fresh?' · toca una frase para ir a ese momento':''}</p><div class="card" style="line-height:1.75">${tx}</div>`:''}
+    <div style="height:14px"></div><button class="btn sec" id="b-new">Nueva grabación con el mismo contexto</button>`;
+  const go=t=>{ const p=$('#player'); if(p){ p.currentTime=t; p.play().catch(()=>{}); p.scrollIntoView({behavior:'smooth',block:'center'}); } };
+  document.querySelectorAll('#v-report [data-t]').forEach(e=>e.onclick=()=>go(+e.dataset.t));
+  $('#b-new').onclick=()=>show('train');
+  $('#b-copy').onclick=async()=>{ try{ await navigator.clipboard.writeText(buildPrompt(S)); toast('Copiado. Pégalo en un chat de Claude.'); }catch(e){ toast('No se pudo copiar'); } };
+  $('#b-llm')&&($('#b-llm').onclick=()=>runCoach(S));
+  document.querySelectorAll('#v-report [data-say]').forEach(e=>e.onclick=()=>speak(e.dataset.say,S.lang,.8));
+  $('#b-savecoach')&&($('#b-savecoach').onclick=()=>{ const t=$('#coach-in').value.trim(); if(!t)return; S.coach=t; persist(S); $('#coach').innerHTML=md(t); toast('Guardado en la sesión'); });
+  const cv=$('#tl'); if(cv){ const d=devicePixelRatio||1, W=cv.clientWidth||600, H=92; cv.width=W*d; cv.height=H*d; const g=cv.getContext('2d'); g.scale(d,d);
+    const env=(S.audio&&S.audio.env)||[], st=(v&&v.strip)||[];
+    env.forEach((e,i)=>{ if(!e)return; const bw=W/env.length; g.fillStyle='#ff5a36'; g.fillRect(i*bw,66-e*60,Math.max(1,bw-1),e*60); });
+    st.forEach((s,i)=>{ const bw=W/st.length; g.fillStyle=s===1?'#7bd88f':s===2?'#ff5a36':'#2a2a2e'; g.fillRect(i*bw,76,bw+.5,10); });
+    cv.onclick=e=>{ const r=cv.getBoundingClientRect(); go((e.clientX-r.left)/r.width*(S.dur||0)); }; }
+}
+function gameHTML(S){ const g=S.game||{}; if(!g.mode||g.mode==='libre') return '';
+  if(g.mode==='memo'&&S.recall) return `<h2>Fidelidad al texto</h2><div class="card"><div style="font:400 40px var(--serif)">${Math.round(S.recall.acc)} %</div><p class="sm mut">de las ${S.recall.n} palabras del original.</p>${S.recall.subs.length?`<p class="sm"><b>Cambiadas${S.lang!=='es'?' (o mal entendidas por la transcripción: posible pronunciación)':''}:</b> ${S.recall.subs.slice(0,14).map(x=>`${esc(x.e)} → <mark>${esc(x.h)}</mark>`).join(' · ')}</p>`:''}${S.recall.dels.length?`<p class="sm" style="margin:0"><b>Omitidas:</b> <span class="mut">${S.recall.dels.slice(0,40).map(esc).join(' ')}${S.recall.dels.length>40?' …':''}</span></p>`:''}</div>`;
+  if(g.mode==='improv') return `<h3>Tema improvisado</h3><div class="card" style="font:400 21px/1.25 var(--serif)">${esc(g.topic||'')}</div>`;
+  if(g.mode==='conv'&&g.turns&&g.turns.length) return `<h2>La conversación</h2><div class="card">${g.turns.map(t=>`<div class="pw" style="display:block"><b>${esc(t.q)}</b>${t.a?`<div class="mut sm" style="margin-top:4px">${esc(t.a)}</div>`:''}</div>`).join('')}</div>`;
+  return ''; }
+function pronHTML(S){ if(S.lang==='es') return ''; const p=S.pron||{}, say=w=>`<button class="btn sec sm" data-say="${esc(w)}">▶</button>`; let h='';
+  if(p.ai) h+=`<div class="card"><p>${esc(p.ai.resumen)}</p>${p.ai.errores.map(e=>`<div class="pw">${say(e.w)}<div><b>${esc(e.w)}</b> — ${esc(e.p)}<div class="mut sm">${esc(e.c)}</div></div></div>`).join('')||'<p class="mut sm">Sin errores relevantes detectados.</p>'}</div>`;
+  else if(p.risk&&p.risk.length) h+=`<div class="card"><p class="sm mut">${brain().p==='gemini'&&brainOn()?'':'Para una corrección real sobre tu audio activa el cerebro Gemini en Perfil (gratis). Mientras tanto: '}sonidos que suelen fallar a los hispanohablantes en palabras que has dicho. Escucha el modelo y compárate; no están medidos en tu audio.</p>${p.risk.map(e=>`<div class="pw">${say(e.w)}<div><b>${esc(e.w)}</b><div class="mut sm">${esc(e.tip)}</div></div></div>`).join('')}</div>`;
+  return h?`<h2>Pronunciación</h2><p class="sm mut" id="pron-status"></p>${h}`:`<p class="sm mut" id="pron-status"></p>`; }
+function renderHistory(){
+  const L=[...mem.sessions].reverse();
+  $('#v-history').innerHTML=`<h1>Historial</h1>${L.length?`<div class="card">${L.map(s=>`<div class="sess" data-id="${s.id}"><div class="sc" style="color:${col(s.overall||0)}">${s.overall??'–'}</div><div><b>${s.game&&s.game.mode&&s.game.mode!=='libre'?MODES[s.game.mode]+' · ':''}${TYPES[s.ctx.type]||'Libre'} · ${LANGS[s.lang][0]}</b><small>${new Date(s.date).toLocaleDateString('es-ES',{day:'numeric',month:'short'})} · ${mmss(s.dur||0)}${s.ctx.text?' · '+esc(s.ctx.text.slice(0,48)):''}</small></div></div>`).join('')}</div>`:'<p class="mut">Aún no hay sesiones. Graba la primera.</p>'}`;
+  document.querySelectorAll('.sess').forEach(e=>e.onclick=()=>{ const s=mem.sessions.find(q=>q.id===e.dataset.id); if(s){ renderReport(s,state.cur&&state.cur.id===s.id); show('report'); } });
+}
+function renderProfile(){
+  const Ss=mem.sessions.filter(s=>s.overall!=null), rec=recurring(), n=Ss.length;
+  let spark=''; if(n>=2){ const pts=Ss.slice(-20).map((s,i,a)=>`${(i/(a.length-1)*300).toFixed(1)},${(64-s.overall*.6).toFixed(1)}`).join(' '); spark=`<svg viewBox="0 -4 300 72" style="width:100%;height:80px"><polyline points="${pts}" fill="none" stroke="#ff5a36" stroke-width="2" stroke-linejoin="round"/></svg>`; }
+  const areaAvg=Object.keys(AREAS).map(k=>{ const v=Ss.slice(-8).map(s=>s.scores[k]).filter(x=>x!=null); return [k,v.length?Math.round(mean(v)):null]; });
+  const byLang=Object.keys(LANGS).map(l=>{ const v=Ss.filter(s=>s.lang===l); return v.length?`${LANGS[l][0]}: ${Math.round(mean(v.map(s=>s.overall)))} (${v.length})`:null; }).filter(Boolean);
+  const fillAll={}; mem.sessions.slice(-10).forEach(s=>Object.entries(s.text?.fillers||{}).forEach(([w,k])=>fillAll[s.lang+' · '+w]=(fillAll[s.lang+' · '+w]||0)+k));
+  const topFill=Object.entries(fillAll).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  $('#v-profile').innerHTML=`<h1>Tu perfil</h1>
+    ${n?`<div class="card"><div class="row" style="align-items:flex-end"><div><div style="font:400 44px var(--serif)">${Math.round(mean(Ss.slice(-5).map(s=>s.overall)))}</div><span class="mut sm">media últimas 5 · ${n} sesión(es)</span></div><div class="mut sm" style="text-align:right">${byLang.join('<br>')}</div></div>${spark}</div>
+    <h2>Tu foco ahora</h2>${rec.length?`<div class="find s3"><span class="tag rec">${rec[0].k} de tus últimas ${rec[0].n} sesiones</span><b>${CAT[rec[0].id][1]}</b><div class="dr">→ ${CAT[rec[0].id][2]}</div></div>`:'<p class="mut">Necesito al menos 2 sesiones con el mismo fallo para marcar un patrón.</p>'}
+    ${rec.length>1?`<h3>Otros errores habituales</h3><div class="card">${rec.slice(1).map(r=>`<div class="mom" style="cursor:default"><time>${r.k}/${r.n}</time><div>${CAT[r.id][1]}<div class="mut sm">${AREAS[CAT[r.id][0]]}</div></div></div>`).join('')}</div>`:''}
+    <h3>Media por área (últimas 8)</h3><div class="card">${areaAvg.map(([k,s])=>s==null?'':`<div class="bar-row"><span>${AREAS[k]}</span><div class="tr"><b style="width:${s}%;background:${col(s)}"></b></div><em>${s}</em></div>`).join('')}</div>
+    ${topFill.length?`<h3>Tus muletillas (últimas 10 sesiones)</h3><div class="chips">${topFill.map(([w,k])=>`<span class="chip">${esc(w)} ×${k}</span>`).join('')}</div>`:''}`:'<p class="mut">Tu perfil se construye solo con cada sesión: errores recurrentes, evolución por área y muletillas por idioma.</p>'}
+    ${brainHTML()}
+    <h3>Tus objetivos (el coach los tiene en cuenta)</h3><textarea id="notes" placeholder="Ej.: sonar más ejecutivo en francés; responder en menos de 2 minutos; dejar de decir «o sea».">${esc(mem.notes||'')}</textarea>
+    <h3>Copia de seguridad</h3><p class="mut sm">El perfil vive en este navegador. Exporta para pasarlo a otro dispositivo o no perderlo.</p>
+    <div class="row"><button class="btn sec" id="b-exp">Exportar</button><button class="btn sec" id="b-imp">Importar</button></div><input type="file" id="impf" accept="application/json,.json" class="hide">
+    <div style="height:10px"></div><button class="btn sec sm" id="b-wipe" style="color:var(--bad)">Borrar todo el perfil</button>`;
+  wireBrain();
+  $('#notes').onchange=e=>{ mem.notes=e.target.value; DB.save(); };
+  $('#b-exp').onclick=()=>{ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([JSON.stringify(mem)],{type:'application/json'})); a.download='retor-perfil.json'; a.click(); };
+  $('#b-imp').onclick=()=>$('#impf').click();
+  $('#impf').onchange=async e=>{ try{ const d=JSON.parse(await e.target.files[0].text()); if(!Array.isArray(d.sessions)) throw 0; const ids=new Set(mem.sessions.map(s=>s.id)); d.sessions.forEach(s=>{ if(!ids.has(s.id)) mem.sessions.push(s); }); mem.sessions.sort((a,b)=>a.date<b.date?-1:1); if(!mem.notes) mem.notes=d.notes||''; DB.save(); renderProfile(); toast('Perfil importado'); }catch(_){ toast('Archivo no válido'); } };
+  let armed=false; $('#b-wipe').onclick=e=>{ if(!armed){ armed=true; e.target.textContent='Pulsa otra vez para confirmar'; return; } mem={sessions:[],settings:mem.settings,notes:'',brain:mem.brain,kb:mem.kb}; DB.save(); renderProfile(); };
+}
+function show(v){
+  ['train','run','report','history','profile','kb'].forEach(k=>$('#v-'+k).classList.toggle('hide',k!==v));
+  document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===v||(b.dataset.v==='train'&&(v==='run'||v==='report'))));
+  if(v==='history') renderHistory(); if(v==='profile') renderProfile(); if(v==='kb') renderKB(); if(v==='train') refreshTrain();
+  if(v!=='report'){ const p=$('#player'); p&&p.pause(); }
+  scrollTo(0,0);
+}
+
+/* ============ Grabación y modos ============ */
+let stream=null, rec=null, parts=[], tmr=null, cancelled=false, conv=null, cap=null, recGame=null;
+const setHint=t=>$('#rec-hint').textContent=t;
+function startCap(){ const AC=window.AudioContext||window.webkitAudioContext, ac=new AC(), src=ac.createMediaStreamSource(stream), pr=ac.createScriptProcessor(4096,1,1), bufs=[]; let on=false;
+  pr.onaudioprocess=e=>{ if(on) bufs.push(new Float32Array(e.inputBuffer.getChannelData(0))); }; src.connect(pr); pr.connect(ac.destination);
+  cap={on(){ bufs.length=0; on=true; }, off(){ on=false; const n=bufs.reduce((s,b)=>s+b.length,0), x=new Float32Array(n); let o=0; bufs.forEach(b=>{ x.set(b,o); o+=b.length; }); return resample(x,ac.sampleRate,16000); }, close(){ try{ ac.close(); }catch(e){} cap=null; }}; }
+async function quickTranscribe(x,lang){ let out=''; for(let s=0;s<x.length;s+=28*16000){ const piece=x.slice(s,s+28*16000); if(piece.length<4000) break; const r=await wcall({type:'run',id:s,audio:piece,language:LANGS[lang][1]},null,[piece.buffer]); out+=' '+(r.out.text||''); } return out.trim(); }
+async function convQuestion(){
+  const i=conv.turns.length, lang=state.lang, bank=(BANK.conv[state.type]||BANK.conv.generic)[lang];
+  if(!conv.ai) return bank[i%bank.length];
+  const msgs=[{role:'user',content:'(Empieza la conversación.)'}]; conv.turns.forEach(t=>{ msgs.push({role:'assistant',content:t.q}); msgs.push({role:'user',content:t.a||'(respuesta no transcrita; continúa con otra pregunta)'}); });
+  try{ const q=await ai({system:`Eres el interlocutor en un ejercicio de comunicación (${TYPES[state.type]}). Contexto dado por el usuario: ${$('#ctx').value.trim()||'sin contexto; elige un escenario profesional realista'}. Habla SOLO en ${LANGS[lang][0]}. Cada intervención tuya: 1–2 frases, sin acotaciones ni comillas. Sé exigente: repregunta sobre lo que acaba de decir, pide concreción y pruebas, y al menos una vez cambia de tema por sorpresa para obligarle a improvisar. Esta es la intervención ${i+1} de ${conv.max}${i+1===conv.max?'; ciérrala con una última pregunta difícil':''}.`,messages:msgs});
+    return q.replace(/^["«\s]+|["»\s]+$/g,'').slice(0,400)||bank[i%bank.length]; }catch(e){ return bank[i%bank.length]; }
+}
+async function convTurn(){
+  $('#b-next').disabled=true; setHint('…'); const q=await convQuestion(); if(cancelled||!rec) return;
+  conv.cur=q; setHint(`${conv.turns.length+1}/${conv.max} · ${q}`); await speak(q,state.lang); if(cancelled||!rec||rec.state==='inactive') return;
+  cap&&cap.on(); if(rec.state==='paused') rec.resume(); $('#b-next').disabled=false;
+}
+async function convNext(final){
+  if(!conv||!rec||rec.state==='inactive') return; $('#b-next').disabled=true; if(rec.state==='recording') rec.pause();
+  let a=''; if(cap){ const pcm=cap.off(); if(conv.ai&&!final&&pcm.length>8000){ setHint('Escuchando tu respuesta…'); try{ a=await quickTranscribe(pcm,state.lang); }catch(e){} } }
+  if(conv.cur) conv.turns.push({q:conv.cur,a}); conv.cur=null;
+  if(final||conv.turns.length>=conv.max) rec.stop(); else convTurn();
+}
+async function startRec(){
+  const mode=state.mode, g=state.game;
+  if(mode==='memo'&&words($('#ref')?.value||'').length<10){ toast('Genera o pega primero el discurso'); return; }
+  if(mode==='improv'&&!g.topic){ newTopic(); }
+  if(!navigator.mediaDevices?.getUserMedia||!window.MediaRecorder){ toast('Este navegador no permite grabar aquí. Sube un vídeo.'); return; }
+  try{ stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:1280},height:{ideal:720}},audio:{echoCancellation:mode==='conv',noiseSuppression:false,autoGainControl:false}}); }
+  catch(e){ toast('Sin permiso de cámara o micrófono'); return; }
+  $('#cam').srcObject=stream; $('#rec').classList.remove('hide'); $('#rec-t').textContent='0:00'; cancelled=false; conv=null;
+  $('#b-next').classList.toggle('hide',mode!=='conv'); $('#b-stop').textContent=mode==='conv'?'■ Terminar':'■ Parar y analizar';
+  const c=$('#ctx').value.trim(), ref=mode==='memo'?$('#ref').value.trim():'';
+  recGame={mode,mins:g.mins,ref,topic:mode==='improv'?g.topic:''};
+  setHint(mode==='improv'?'Tema: '+g.topic:mode==='memo'?($('#cue')?.checked?ref.split(/(?<=[.!?…])\s+/).map(s=>s.split(/\s+/).slice(0,3).join(' ')+'…').join('  '):'De memoria. Sin mirar.'):mode==='conv'?'Preparando la conversación…':TYPES[state.type]+(c?' · '+c.slice(0,140):''));
+  if(mode==='conv'){ conv={turns:[],max:5,ai:brainOn(),cur:null}; recGame.turns=conv.turns; startCap(); if(conv.ai){ try{ await wcall({type:'load',model:$('#wmodel').value,gpu:!!($('#wgpu').checked&&navigator.gpu)},d=>setHint(`Preparando transcripción ${Math.round(d.progress||0)} %`)); }catch(e){ conv.ai=false; } } }
+  for(let i=3;i>0;i--){ $('#count').textContent=i; await sleep(800); if(cancelled) return; } $('#count').textContent='';
+  const mt=['video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'].find(m=>MediaRecorder.isTypeSupported(m))||'';
+  parts=[]; rec=new MediaRecorder(stream,mt?{mimeType:mt,videoBitsPerSecond:2.5e6}:{}); const game=recGame;
+  rec.ondataavailable=e=>e.data.size&&parts.push(e.data);
+  rec.onstop=()=>{ const b=new Blob(parts,{type:rec.mimeType||'video/webm'}); stopStream(); if(!cancelled&&b.size>0) analyze(b,game); };
+  rec.start(1000); const t0=Date.now(); tmr=setInterval(()=>$('#rec-t').textContent=mmss((Date.now()-t0)/1000),500);
+  if(mode==='conv'){ rec.pause(); convTurn(); }
+}
+function stopStream(){ clearInterval(tmr); try{ speechSynthesis.cancel(); }catch(e){} cap&&cap.close(); stream&&stream.getTracks().forEach(t=>t.stop()); stream=null; $('#rec').classList.add('hide'); $('#cam').srcObject=null; }
+$('#b-rec').onclick=startRec;
+$('#b-next').onclick=()=>convNext(false);
+$('#b-stop').onclick=()=>{ if(conv) return convNext(true); if(rec&&rec.state!=='inactive') rec.stop(); };
+$('#b-cancel').onclick=()=>{ cancelled=true; if(rec&&rec.state!=='inactive') rec.stop(); else stopStream(); };
+$('#b-up').onclick=()=>{ if(state.mode==='memo'&&words($('#ref')?.value||'').length<10){ toast('Genera o pega primero el discurso'); return; } $('#file').click(); };
+$('#file').onchange=e=>{ const f=e.target.files[0]; e.target.value=''; if(f) analyze(f,{mode:state.mode,mins:state.game.mins,ref:state.mode==='memo'?$('#ref').value.trim():'',topic:state.mode==='improv'?state.game.topic:''}); };
+
+const MODES={libre:'Libre',memo:'Memoriza',improv:'Improvisa',conv:'Conversación'};
+function newTopic(){ const b=BANK.topics[state.lang]; state.game.topic=b[Math.floor(Math.random()*b.length)]; const e=$('#topic'); if(e) e.textContent=state.game.topic; }
+function renderMode(){
+  const m=state.mode, g=state.game, P=$('#mode-panel'), mins=(arr)=>`<div class="chips" id="mins" style="margin:10px 0">${arr.map(n=>`<button class="chip ${g.mins===n?'on':''}" data-n="${n}">${n} min</button>`).join('')}</div>`;
+  $('#target-wrap').classList.toggle('hide',m==='memo'||m==='improv'); $('#b-up').classList.toggle('hide',m==='conv');
+  $('#b-rec').textContent=m==='conv'?'● Empezar conversación':m==='memo'?'● Recitar de memoria':'● Grabar ahora';
+  if(m==='libre'){ P.innerHTML=''; return; }
+  if(m==='memo') P.innerHTML=`<div class="card"><p class="sm mut">Memoriza un discurso y recítalo. Mido además cuánto te desvías del texto${state.lang!=='es'?' y qué palabras no se te entienden':''}.</p>${mins([1,2,3])}<button class="btn sec" id="b-gen">Generar discurso</button><div style="height:10px"></div><textarea id="ref" style="min-height:170px" placeholder="…o pega aquí tu propio texto">${esc(g.ref||'')}</textarea><div class="row" style="margin-top:10px;align-items:center"><button class="btn sec sm" id="b-listen">▶ Escuchar</button><label class="sm" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="cue"> Apuntador al grabar</label></div><p class="sm mut" id="gen-status" style="margin:8px 0 0"></p></div>`;
+  if(m==='improv') P.innerHTML=`<div class="card"><p class="sm mut">Te doy un tema y hablas sin preparar. Cuenta atrás de 3 segundos y a hablar.</p>${mins([1,2])}<div style="font:400 24px/1.2 var(--serif);margin:6px 0 12px" id="topic">${esc(g.topic||'Pulsa para recibir un tema')}</div><button class="btn sec" id="b-topic">Dame un tema</button></div>`;
+  if(m==='conv') P.innerHTML=`<div class="card"><p class="sm" style="margin:0">Conversación de 5 turnos. El interlocutor habla, tú respondes a cámara y pulsas <b>Siguiente</b>. ${brainOn()?'El cerebro IA adapta cada pregunta a lo que acabas de decir y al contexto.':'<span class="mut">Sin cerebro IA uso preguntas fijas; actívalo en Perfil para que te repregunte y te saque del guion.</span>'}</p></div>`;
+  const M=$('#mins'); if(M) M.onclick=e=>{ const b=e.target.closest('.chip'); if(!b) return; g.ref=$('#ref')?.value||g.ref; g.mins=+b.dataset.n; renderMode(); };
+  if(m==='memo'){ $('#ref').onchange=e=>g.ref=e.target.value; $('#b-listen').onclick=()=>speak($('#ref').value,state.lang,.95);
+    $('#b-gen').onclick=async()=>{ const st=$('#gen-status'); if(!brainOn()){ $('#ref').value=g.ref=BANK.speech[state.lang]; st.textContent='Discurso de ejemplo (~1 min). Con el cerebro IA se generan a medida y de 1 a 3 minutos.'; return; }
+      st.textContent='Escribiendo…'; try{ const t=await ai({messages:[{role:'user',content:`Escribe un discurso en ${LANGS[state.lang][0]} de unas ${g.mins*140} palabras para memorizar y decir en voz alta. Tipo: ${TYPES[state.type]}. Contexto: ${$('#ctx').value.trim()||'tema profesional inspirador a tu elección'}. Usa frases cortas, una idea clara al inicio que se repite en el cierre, una lista de tres y un contraste («no es X, es Y»). Vocabulario rico pero natural. Devuelve solo el texto del discurso, sin título ni acotaciones.`}],status:x=>st.textContent=x}); $('#ref').value=g.ref=t.trim(); st.textContent=''; }catch(e){ st.textContent='Falló la IA: '+e.message; } }; }
+  if(m==='improv') $('#b-topic').onclick=async()=>{ if(!brainOn()) return newTopic(); const e=$('#topic'); e.textContent='…'; try{ const t=await ai({messages:[{role:'user',content:`Dame UN tema para improvisar un discurso de ${g.mins} minuto(s) en ${LANGS[state.lang][0]}. Tipo: ${TYPES[state.type]}. Contexto: ${$('#ctx').value.trim()||'profesional, variado'}. Que obligue a tomar postura. Temas ya usados, no los repitas: ${mem.sessions.slice(-8).map(s=>s.game?.topic).filter(Boolean).join(' | ')||'ninguno'}. Devuelve solo el tema, una frase, en ${LANGS[state.lang][0]}.`}]}); g.topic=t.trim().replace(/^["«]|["»]$/g,'').slice(0,200); e.textContent=g.topic; }catch(_){ newTopic(); } };
+}
+function streakTxt(){ const days=new Set(mem.sessions.map(s=>new Date(s.date).toDateString())); let n=0; const d=new Date(); if(!days.has(d.toDateString())) d.setDate(d.getDate()-1); while(days.has(d.toDateString())){ n++; d.setDate(d.getDate()-1); }
+  const best=Math.max(0,...mem.sessions.filter(s=>(s.game?.mode||'libre')===state.mode&&s.overall!=null).map(s=>s.overall)); return (n?`Racha: ${n} día(s)`:'Sin racha: graba hoy')+(best?` · Récord en ${MODES[state.mode]}: ${best}`:''); }
+
+/* ============ Inicio ============ */
+function chips(el,obj,key,lab=v=>v,after){ el.innerHTML=Object.entries(obj).map(([k,v])=>`<button class="chip ${state[key]===k?'on':''}" data-k="${k}">${lab(v)}</button>`).join(''); el.onclick=e=>{ const b=e.target.closest('.chip'); if(!b)return; state[key]=b.dataset.k; chips(el,obj,key,lab,after); after&&after(); }; }
+const refreshTrain=()=>{ renderMode(); $('#streak').textContent=streakTxt(); };
+chips($('#modes'),MODES,'mode',v=>v,refreshTrain); chips($('#types'),TYPES,'type',v=>v,()=>{}); chips($('#langs'),LANGS,'lang',v=>v[0],()=>{ state.game.topic=''; refreshTrain(); });
+refreshTrain();
+$('#wmodel').value=mem.settings.wmodel||'Xenova/whisper-base'; $('#wgpu').checked=!!mem.settings.wgpu;
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>show(b.dataset.v));
+setTimeout(()=>checkUpdates(false),1500);
+window.__retor={analyzeAudio,analyzeText,summarizeVision,diagnose,planChunks,renderReport,persist,show,buildPrompt,align,riskWords,wavB64,addKB,parseJSON,mem:()=>mem,state};
+function renderKB(){
+  const all=allKB(), f=state.kcat||'all', L=all.filter(k=>f==='all'||k.c===f||(f==='new'&&k.via)).sort((a,b)=>(b.at||0)-(a.at||0));
+  $('#v-kb').innerHTML=`<h1>Técnicas</h1><p class="mut">La base que usa tu coach: qué hacer, qué consigues y de dónde sale. ${all.length} técnicas${(mem.kb||[]).length?`, ${(mem.kb||[]).length} añadidas por actualización`:''}.</p>
+    <div class="chips" id="kcats">${[['all','Todas'],...Object.entries(KCAT),['new','Nuevas']].map(([k,v])=>`<button class="chip ${f===k?'on':''}" data-k="${k}">${v}</button>`).join('')}</div>
+    <div class="card">${L.map(k=>`<div class="kb"><span class="tag">${KCAT[k.c]||''}</span><span class="ev ${k.e==='s'?'s':k.e==='d'?'d':k.e==='n'?'n':''}">${EV[k.e]||''}</span><b>${esc(k.t)}</b>${esc(k.d)}<div class="mut sm" style="margin-top:6px">${k.url?`<a href="${esc(k.url)}" target="_blank" rel="noopener" style="color:inherit">${esc(k.s||k.url)}</a>`:esc(k.s)}</div></div>`).join('')||'<p class="mut">Nada en esta categoría.</p>'}</div>
+    <button class="btn sec" id="b-upd">Buscar técnicas nuevas ahora</button><p class="sm mut" style="margin-top:8px">Al abrir la app se lee <code>kb.json</code> del servidor y, una vez por semana, el cerebro IA propone novedades. Lo que añade la IA queda marcado como «sin verificar» hasta que lo compruebes.</p>`;
+  $('#kcats').onclick=e=>{ const b=e.target.closest('.chip'); if(b){ state.kcat=b.dataset.k; renderKB(); } };
+  $('#b-upd').onclick=async e=>{ e.target.disabled=true; e.target.textContent='Buscando…'; const n=await checkUpdates(true); if(!n) toast(brainOn()&&brain().p!=='local'?'Nada nuevo por ahora':'Sin novedades. Activa un cerebro IA en la nube para buscar.'); renderKB(); };
+}
+function brainHTML(){ const b=brain(); return `<h3>Cerebro IA</h3><div class="card"><select id="br-p"><option value="none">Sin IA (solo métricas + copiar para Claude)</option>${Object.entries(BR).map(([k,v])=>`<option value="${k}">${v.name}</option>`).join('')}</select>
+  <div id="br-f" class="${b.p==='none'||!b.p?'hide':''}"><div style="height:10px"></div><input type="text" id="br-key" placeholder="Clave API (se guarda solo en este navegador)" autocomplete="off" class="${b.p==='local'?'hide':''}"><div style="height:8px"></div><input type="text" id="br-model" placeholder="modelo"><div style="height:8px"></div><input type="text" id="br-base" placeholder="URL base" class="${b.p==='compat'?'':'hide'}">
+  <p class="sm mut" style="margin:10px 0 0" id="br-help"></p><div style="height:10px"></div><button class="btn sec sm" id="br-test">Probar conexión</button> <span class="sm mut" id="br-st"></span></div></div>`; }
+function wireBrain(){ const b=brain(), H={gemini:'Clave gratuita en aistudio.google.com (sin tarjeta). Es el único que escucha tu audio para corregir pronunciación. El nivel gratuito tiene límite diario de peticiones; si lo agotas, cambia el modelo a gemini-3.5-flash-lite. Google puede usar lo que envías en el nivel gratuito para mejorar sus productos.',compat:'Clave gratuita en console.groq.com. Rápido y con límites amplios, pero solo lee texto (no escucha la pronunciación). Vale cualquier API compatible con OpenAI, incluido Ollama en tu ordenador.',local:'Todo en tu dispositivo, sin enviar nada. Necesita Chrome o Edge de escritorio con WebGPU y descarga 1–3 GB. Es el menos capaz de los tres.'};
+  $('#br-p').value=b.p||'none'; $('#br-key').value=b.key||''; $('#br-model').value=b.model||BR[b.p]?.model||''; $('#br-base').value=b.base||BR.compat.base; $('#br-help').textContent=H[b.p]||'';
+  const save=()=>{ const p=$('#br-p').value; mem.brain={p,key:$('#br-key').value.trim(),model:$('#br-model').value.trim(),base:$('#br-base').value.trim()}; DB.save(); };
+  $('#br-p').onchange=()=>{ const p=$('#br-p').value; mem.brain={p,key:'',model:BR[p]?.model||'',base:BR.compat.base}; DB.save(); renderProfile(); };
+  ['br-key','br-model','br-base'].forEach(i=>$('#'+i).onchange=save);
+  $('#br-test').onclick=async()=>{ save(); const st=$('#br-st'); st.textContent='Probando…'; try{ const t=await ai({messages:[{role:'user',content:'Responde solo: OK'}],status:x=>st.textContent=x}); st.textContent=t?'Conectado ✓':'Respuesta vacía'; }catch(e){ st.textContent='Error: '+e.message; } };
+}
+</script>
+</body>
+</html>
