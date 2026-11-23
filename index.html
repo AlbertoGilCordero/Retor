@@ -23,7 +23,7 @@ p{margin:0 0 10px}.mut{color:var(--mut)}.sm{font-size:13px}
 .chips{display:flex;flex-wrap:wrap;gap:8px}
 .chip{border:1px solid var(--line);background:transparent;color:var(--tx);border-radius:999px;padding:8px 14px;font:inherit;font-size:14px;cursor:pointer}
 .chip.on{background:var(--tx);color:#111;border-color:var(--tx)}
-textarea,input[type=text],input[type=number],select{width:100%;background:var(--card2);border:1px solid var(--line);color:var(--tx);border-radius:12px;padding:12px;font:inherit;outline:none}
+textarea,input[type=text],input[type=password],input[type=number],select{width:100%;background:var(--card2);border:1px solid var(--line);color:var(--tx);border-radius:12px;padding:12px;font:inherit;outline:none}
 textarea{min-height:96px;resize:vertical}textarea:focus,input:focus,select:focus{border-color:#55555c}
 .btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;border:0;border-radius:14px;padding:15px;font:600 16px Inter,system-ui;cursor:pointer;background:var(--acc);color:#fff}
 .btn.sec{background:var(--card2);color:var(--tx);border:1px solid var(--line)}
@@ -81,7 +81,7 @@ mark.h{background:rgba(242,193,78,.25)}
 .why{font-size:13px;margin-top:8px;padding:8px 10px;background:var(--card2);border-radius:10px}
 .pw{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--line)}.pw:last-child{border:0}.pw button{flex:none}
 #rec .hint{max-height:38vh;overflow:auto;font-size:15px;line-height:1.45}
-.toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);background:var(--tx);color:#111;padding:10px 16px;border-radius:999px;font-size:13px;z-index:50}
+.toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);background:var(--tx);color:#111;padding:10px 16px;border-radius:18px;max-width:min(92vw,560px);width:max-content;text-align:center;font-size:13px;z-index:50}
 details summary{cursor:pointer;color:var(--mut);font-size:13px}
 </style>
 </head>
@@ -246,6 +246,7 @@ const KB=[
  {id:'mehrabian',c:'mito',t:'«El 93 % es no verbal» es un mito',d:'La regla 7-38-55 solo se midió con palabras sueltas sobre sentimientos dichas con un tono contradictorio. No significa que el contenido dé igual.',s:'Mehrabian 1967/1971',e:'s'},
  {id:'lies',c:'mito',t:'No existe el «gesto del mentiroso»',d:'Ni desviar la mirada ni tocarse la nariz detectan mentiras de forma fiable: la precisión humana ronda el 54 %, casi azar.',s:'Bond & DePaulo 2006 (metaanálisis)',e:'s'}
 ];
+const DRILL={"mirror": ["conv", "En cada turno, antes de responder, repite como pregunta las últimas 2–3 palabras del interlocutor y deja 2 segundos de silencio."], "label": ["libre", "Graba 1 minuto respondiendo a la objeción «es demasiado caro»: abre con dos etiquetas («Parece que…», «Da la impresión de que…») antes de argumentar nada."], "calibrated": ["libre", "Piensa en una negociación real pendiente y graba cinco preguntas «¿cómo…?» o «¿qué…?», con 3 segundos de pausa tras cada una."], "audit": ["libre", "Graba 45 segundos abriendo una petición difícil con tres «vas a pensar que…» antes de pedir lo que quieres."], "bcsm": ["conv", "No propongas nada hasta el cuarto turno: en los tres primeros solo resume lo que te dicen, etiqueta la emoción y pregunta."], "anchor": ["libre", "Graba tu petición de salario o de precio: di la cifra primero, da una sola justificación y calla. Sin rangos ni «más o menos»."], "batna": ["libre", "Graba 1 minuto explicando qué harás si no hay acuerdo y qué interés real crees que tiene la otra parte."], "silence": ["libre", "Graba 1 minuto con cinco pausas deliberadas de 2–3 segundos tras cada idea clave. Objetivo: 15–25 % de tiempo en pausa y cero muletillas."], "scharff": ["libre", "Graba 1 minuto abordando un tema delicado solo con afirmaciones («Imagino que el presupuesto ya está cerrado…»), sin una sola pregunta directa."], "elicit": ["libre", "Graba 1 minuto contando una situación real en la que alguien te sacó información con un halago o un dato erróneo, y cómo responderías hoy."], "cialdini": ["libre", "Graba un pitch de 60 segundos que use prueba social y autoridad, cada una con un dato concreto."], "because": ["libre", "Graba tres peticiones de 15 segundos, cada una con su «porque» concreto."], "loss": ["libre", "Graba el mismo argumento dos veces seguidas, 30 segundos cada una: primero en ganancias y luego en pérdidas."], "warmth": ["libre", "Graba los primeros 30 segundos de una presentación: sonrisa real, saludo cercano y una frase sobre ellos antes de hablar de ti. Objetivo: más del 20 % del tiempo sonriendo."], "thin": ["libre", "Graba tu arranque de 30 segundos cinco veces seguidas en un mismo vídeo. Compara la primera con la última."], "clt": ["libre", "Graba 90 segundos sobre tu proyecto con una metáfora, un contraste («no es X, es Y») y una lista de tres."], "powerless": ["libre", "Graba 1 minuto sobre un logro tuyo con cero muletillas y cero «creo que» o «un poco». Repite hasta que el contador marque 0."], "concrete": ["libre", "Graba 1 minuto sobre tu experiencia con al menos cuatro cifras verificables."], "pyramid": ["improv", "Da la conclusión en la primera frase y sostenla con exactamente tres argumentos."], "star": ["libre", "Graba una respuesta de 90 segundos a «háblame de un conflicto»: como máximo 15 segundos de situación y un resultado con número."], "monroe": ["libre", "Graba un pitch de 2 minutos con los cinco pasos (atención, necesidad, solución, visualización, acción), con una pausa clara entre cada uno."], "primacy": ["libre", "Graba 1 minuto en el que la primera y la última frase digan el mismo mensaje clave con palabras distintas."], "three": ["improv", "Anuncia al empezar «tres cosas» y estructura todo el discurso sobre ellas."], "rate": ["libre", "Graba 1 minuto alternando velocidades: ágil en el relato y lento en la frase clave. Objetivo: quedar dentro del rango ideal de palabras por minuto."], "pitchlow": ["libre", "Graba diez afirmaciones cortas terminando cada una hacia abajo. Ninguna debe sonar a pregunta."], "charisma_voice": ["memo", "Recita el discurso exagerando la entonación. Objetivo: variación de tono por encima de ±3 semitonos."], "dj": ["libre", "Graba 30 segundos diciendo un «no» difícil con voz grave, lenta y descendente."], "gaze": ["libre", "Graba 1 minuto mirando solo a la lente. Objetivo: más del 85 % de mirada a cámara."], "gesture": ["libre", "Graba 1 minuto en plano medio enumerando tres ideas con las manos a la altura del pecho. Objetivo: manos visibles más del 50 % del tiempo."], "pacify": ["conv", "Mantén las manos en posición base durante toda la conversación. Objetivo: cero toques de cara."], "steeple": ["libre", "Graba 45 segundos defendiendo una opinión: manos en campanario al afirmar y palmas visibles al invitar."], "power": ["libre", "Antes de grabar, pasa 1 minuto de pie con postura abierta y respiración lenta. Graba 45 segundos y compara tu arranque con el de una sesión anterior."], "mehrabian": ["libre", "Graba 45 segundos explicando a un amigo por qué «el 93 % es no verbal» es falso, con conclusión primero."], "lies": ["libre", "Graba 45 segundos explicando por qué no existe un gesto que delate al mentiroso, con un dato y un cierre claro."]};
 const FKB={fillers:'powerless',hedging:'powerless',monotone:'charisma_voice',flat_volume:'charisma_voice',eye:'gaze',weak_open:'thin',weak_close:'primacy',no_data:'concrete',no_pauses:'silence',face_touch:'pacify',pace_fast:'rate',long_sent:'pyramid',no_smile:'warmth',hands_hidden:'gesture',flat_face:'warmth'};
 const KTYPE={entrevista:['star','pyramid','concrete','powerless','warmth','thin','primacy','audit','charisma_voice','gaze','gesture','pacify'],pitch:['monroe','clt','loss','cialdini','concrete','primacy','three','anchor','thin','charisma_voice','gaze','gesture'],presentacion:['pyramid','clt','three','primacy','concrete','silence','charisma_voice','gaze','gesture','rate'],redes:['thin','clt','concrete','three','rate','charisma_voice','gaze','warmth'],negociacion:['mirror','label','calibrated','audit','anchor','batna','silence','bcsm','loss','dj','scharff','cialdini'],libre:['pyramid','clt','powerless','concrete','primacy','silence','charisma_voice','gaze','gesture','warmth']};
 
@@ -283,7 +284,7 @@ const pct = (a,p)=>{ if(!a.length)return 0; const s=[...a].sort((x,y)=>x-y); ret
 const mmss = t=>{ t=Math.max(0,Math.round(t)); return Math.floor(t/60)+':'+String(t%60).padStart(2,'0'); };
 const sleep = ms=>new Promise(r=>setTimeout(r,ms));
 const r1 = v=>Math.round(v*10)/10;
-function toast(m){ const t=document.createElement('div'); t.className='toast'; t.textContent=m; document.body.append(t); setTimeout(()=>t.remove(),2600); }
+function toast(m,ms=2600){ document.querySelectorAll('.toast').forEach(t=>t.remove()); const t=document.createElement('div'); t.className='toast'; t.textContent=m; document.body.append(t); setTimeout(()=>t.remove(),ms); }
 
 /* ============ Almacenamiento (perfil) ============ */
 const KEY='retor.v1';
@@ -561,7 +562,15 @@ async function ai({system,messages,audio,json,search,status}){
     if(system) body.systemInstruction={parts:[{text:system}]};
     if(audio) body.contents.at(-1).parts.unshift({inlineData:{mimeType:'audio/wav',data:audio}});
     if(json&&!search) body.generationConfig.responseMimeType='application/json';
-    const call=async bd=>{ const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':b.key},body:JSON.stringify(bd)}); const j=await r.json().catch(()=>({})); if(!r.ok) throw new Error(j.error?.message||('HTTP '+r.status)); return (j.candidates?.[0]?.content?.parts||[]).map(p=>p.text||'').join(''); };
+    const G='https://generativelanguage.googleapis.com/v1beta/models';
+    const one=async(md,bd)=>{ const r=await fetch(`${G}/${encodeURIComponent(md)}:generateContent`,{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':b.key},body:JSON.stringify(bd)}); const j=await r.json().catch(()=>({})); if(!r.ok){ const e=new Error(j.error?.message||('HTTP '+r.status)); e.code=r.status; throw e; } return (j.candidates?.[0]?.content?.parts||[]).map(p=>p.text||'').join(''); };
+    const busy=e=>[429,500,503,404].includes(e.code);
+    const call=async bd=>{ let first;
+      for(let k=0;k<2;k++){ try{ const t=await one(model,bd); ai.used=model; return t; }catch(e){ first=first||e; if(!busy(e)||e.code===404) break; status&&status('Modelo saturado, reintentando…'); await sleep(2500); } }
+      if(!busy(first)) throw first;
+      if(!ai.alts){ try{ const r=await fetch(G+'?pageSize=200',{headers:{'x-goog-api-key':b.key}}); const j=await r.json(); ai.alts=(j.models||[]).filter(m=>(m.supportedGenerationMethods||[]).includes('generateContent')&&/gemini.*flash/.test(m.name)&&!/image|tts|live|audio|embedding|robotics|computer/.test(m.name)).map(m=>m.name.replace('models/','')).sort().reverse(); }catch(_){ ai.alts=[]; } }
+      for(const md of ai.alts.filter(m=>m!==model).slice(0,4)){ try{ status&&status('Probando '+md+'…'); const t=await one(md,bd); ai.used=md; return t; }catch(e){ if(!busy(e)) break; } }
+      throw first; };
     if(search){ try{ return await call({...body,tools:[{google_search:{}}]}); }catch(e){} }
     return call(body);
   }
@@ -710,6 +719,7 @@ async function analyze(blob,game){
   if(S.text){ if(game.ref&&words(game.ref).length>=10) S.recall=align(game.ref,S.text.full);
     if(lang!=='es') S.pron={risk:riskWords(S.text.full,lang)}; }
   diagnose(S); persist(S); state.cur=S; setStep('dx','done','');
+  if(game.drill){ markDrill(game.drill); toast('Ejercicio de hoy completado'); }
   renderReport(S,true); show('report');
   if(brainOn()){ runCoach(S).then(()=>runPron(S)); }
 }
@@ -801,7 +811,7 @@ function renderProfile(){
   $('#b-exp').onclick=()=>{ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([JSON.stringify(mem)],{type:'application/json'})); a.download='retor-perfil.json'; a.click(); };
   $('#b-imp').onclick=()=>$('#impf').click();
   $('#impf').onchange=async e=>{ try{ const d=JSON.parse(await e.target.files[0].text()); if(!Array.isArray(d.sessions)) throw 0; const ids=new Set(mem.sessions.map(s=>s.id)); d.sessions.forEach(s=>{ if(!ids.has(s.id)) mem.sessions.push(s); }); mem.sessions.sort((a,b)=>a.date<b.date?-1:1); if(!mem.notes) mem.notes=d.notes||''; DB.save(); renderProfile(); toast('Perfil importado'); }catch(_){ toast('Archivo no válido'); } };
-  let armed=false; $('#b-wipe').onclick=e=>{ if(!armed){ armed=true; e.target.textContent='Pulsa otra vez para confirmar'; return; } mem={sessions:[],settings:mem.settings,notes:'',brain:mem.brain,kb:mem.kb}; DB.save(); renderProfile(); };
+  let armed=false; $('#b-wipe').onclick=e=>{ if(!armed){ armed=true; e.target.textContent='Pulsa otra vez para confirmar'; return; } mem={sessions:[],settings:mem.settings,notes:'',brain:mem.brain,kb:mem.kb,drills:mem.drills}; DB.save(); renderProfile(); };
 }
 function show(v){
   ['train','run','report','history','profile','kb'].forEach(k=>$('#v-'+k).classList.toggle('hide',k!==v));
@@ -841,8 +851,10 @@ async function startRec(){
   if(mode==='memo'&&words($('#ref')?.value||'').length<10){ toast('Genera o pega primero el discurso'); return; }
   if(mode==='improv'&&!g.topic){ newTopic(); }
   if(!navigator.mediaDevices?.getUserMedia||!window.MediaRecorder){ toast('Este navegador no permite grabar aquí. Sube un vídeo.'); return; }
-  try{ stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:1280},height:{ideal:720}},audio:{echoCancellation:mode==='conv',noiseSuppression:false,autoGainControl:false}}); }
-  catch(e){ toast('Sin permiso de cámara o micrófono'); return; }
+  { const A={echoCancellation:mode==='conv',noiseSuppression:false,autoGainControl:false}, tries=[{video:{facingMode:'user',width:{ideal:1280},height:{ideal:720}},audio:A},{video:true,audio:true},{audio:true}]; let err=null; stream=null;
+    for(const c of tries){ try{ stream=await navigator.mediaDevices.getUserMedia(c); break; }catch(e){ err=err||e; } }
+    if(!stream){ const n=err&&err.name; toast(n==='NotAllowedError'||n==='SecurityError'?'El navegador o el sistema bloquea cámara y micrófono. Revisa el candado de la barra de direcciones y, en Windows o Mac, los ajustes de privacidad de cámara y micrófono para este navegador.':n==='NotFoundError'?'No encuentro ninguna cámara ni micrófono conectados.':n==='NotReadableError'||n==='AbortError'?'La cámara o el micrófono están en uso por otra aplicación (Teams, Zoom, otra pestaña). Ciérrala y vuelve a intentarlo.':'No se pudo abrir cámara ni micrófono: '+(n||'error desconocido')+(err&&err.message?' · '+err.message:''),9000); return; }
+    if(!stream.getVideoTracks().length) toast('No he podido abrir la cámara'+(err?' ('+err.name+')':'')+': grabo solo la voz, sin análisis no verbal.',7000); }
   $('#cam').srcObject=stream; $('#rec').classList.remove('hide'); $('#rec-t').textContent='0:00'; cancelled=false; conv=null;
   $('#b-next').classList.toggle('hide',mode!=='conv'); $('#b-stop').textContent=mode==='conv'?'■ Terminar':'■ Parar y analizar';
   const c=$('#ctx').value.trim(), ref=mode==='memo'?$('#ref').value.trim():'';
@@ -850,8 +862,8 @@ async function startRec(){
   setHint(mode==='improv'?'Tema: '+g.topic:mode==='memo'?($('#cue')?.checked?ref.split(/(?<=[.!?…])\s+/).map(s=>s.split(/\s+/).slice(0,3).join(' ')+'…').join('  '):'De memoria. Sin mirar.'):mode==='conv'?'Preparando la conversación…':TYPES[state.type]+(c?' · '+c.slice(0,140):''));
   if(mode==='conv'){ conv={turns:[],max:5,ai:brainOn(),cur:null}; recGame.turns=conv.turns; startCap(); if(conv.ai){ try{ await wcall({type:'load',model:$('#wmodel').value,gpu:!!($('#wgpu').checked&&navigator.gpu)},d=>setHint(`Preparando transcripción ${Math.round(d.progress||0)} %`)); }catch(e){ conv.ai=false; } } }
   for(let i=3;i>0;i--){ $('#count').textContent=i; await sleep(800); if(cancelled) return; } $('#count').textContent='';
-  const mt=['video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'].find(m=>MediaRecorder.isTypeSupported(m))||'';
-  parts=[]; rec=new MediaRecorder(stream,mt?{mimeType:mt,videoBitsPerSecond:2.5e6}:{}); const game=recGame;
+  const mt=(stream.getVideoTracks().length?['video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm']:['audio/webm;codecs=opus','audio/mp4','audio/webm']).find(m=>MediaRecorder.isTypeSupported(m))||'';
+  parts=[]; rec=new MediaRecorder(stream,mt?{mimeType:mt,videoBitsPerSecond:2.5e6}:{}); const game=recGame; game.drill=state.drill||null; state.drill=null;
   rec.ondataavailable=e=>e.data.size&&parts.push(e.data);
   rec.onstop=()=>{ const b=new Blob(parts,{type:rec.mimeType||'video/webm'}); stopStream(); if(!cancelled&&b.size>0) analyze(b,game); };
   rec.start(1000); const t0=Date.now(); tmr=setInterval(()=>$('#rec-t').textContent=mmss((Date.now()-t0)/1000),500);
@@ -863,7 +875,7 @@ $('#b-next').onclick=()=>convNext(false);
 $('#b-stop').onclick=()=>{ if(conv) return convNext(true); if(rec&&rec.state!=='inactive') rec.stop(); };
 $('#b-cancel').onclick=()=>{ cancelled=true; if(rec&&rec.state!=='inactive') rec.stop(); else stopStream(); };
 $('#b-up').onclick=()=>{ if(state.mode==='memo'&&words($('#ref')?.value||'').length<10){ toast('Genera o pega primero el discurso'); return; } $('#file').click(); };
-$('#file').onchange=e=>{ const f=e.target.files[0]; e.target.value=''; if(f) analyze(f,{mode:state.mode,mins:state.game.mins,ref:state.mode==='memo'?$('#ref').value.trim():'',topic:state.mode==='improv'?state.game.topic:''}); };
+$('#file').onchange=e=>{ const f=e.target.files[0]; e.target.value=''; if(f) analyze(f,{drill:state.drill,mode:state.mode,mins:state.game.mins,ref:state.mode==='memo'?$('#ref').value.trim():'',topic:state.mode==='improv'?state.game.topic:''}); };
 
 const MODES={libre:'Libre',memo:'Memoriza',improv:'Improvisa',conv:'Conversación'};
 function newTopic(){ const b=BANK.topics[state.lang]; state.game.topic=b[Math.floor(Math.random()*b.length)]; const e=$('#topic'); if(e) e.textContent=state.game.topic; }
@@ -892,25 +904,38 @@ refreshTrain();
 $('#wmodel').value=mem.settings.wmodel||'Xenova/whisper-base'; $('#wgpu').checked=!!mem.settings.wgpu;
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>show(b.dataset.v));
 setTimeout(()=>checkUpdates(false),1500);
-window.__retor={analyzeAudio,analyzeText,summarizeVision,diagnose,planChunks,renderReport,persist,show,buildPrompt,align,riskWords,wavB64,addKB,parseJSON,mem:()=>mem,state};
+window.__retor={todayDrills,practice,markDrill,drillDone,analyzeAudio,analyzeText,summarizeVision,diagnose,planChunks,renderReport,persist,show,buildPrompt,align,riskWords,wavB64,addKB,parseJSON,mem:()=>mem,state};
+const dayKey=(d=new Date())=>d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();
+function todayDrills(){ const ids=Object.keys(DRILL), day=Math.floor((Date.now()-new Date().getTimezoneOffset()*6e4)/864e5), out=[];
+  recurring().forEach(r=>{ const k=FKB[r.id]; if(k&&DRILL[k]&&!out.includes(k)&&out.length<1) out.push(k); });
+  for(let i=0;out.length<3&&i<ids.length;i++){ const k=ids[(day*3+i*11)%ids.length]; if(!out.includes(k)) out.push(k); } return out; }
+function drillDone(id){ return ((mem.drills||{})[dayKey()]||[]).includes(id); }
+function markDrill(id,on=true){ mem.drills=mem.drills||{}; const k=dayKey(), a=new Set(mem.drills[k]||[]); on?a.add(id):a.delete(id); mem.drills[k]=[...a]; const ks=Object.keys(mem.drills); if(ks.length>120) delete mem.drills[ks[0]]; DB.save(); }
+function drillStreak(){ let n=0; const d=new Date(), has=x=>((mem.drills||{})[dayKey(x)]||[]).length>0; if(!has(d)) d.setDate(d.getDate()-1); while(has(d)){ n++; d.setDate(d.getDate()-1); } return n; }
+function practice(id){ const k=allKB().find(x=>x.id===id), dr=DRILL[id]; if(!k||!dr) return; state.mode=dr[0]; state.drill=id; show('train'); chips($('#modes'),MODES,'mode',v=>v,refreshTrain); refreshTrain(); $('#ctx').value=`Ejercicio de técnica «${k.t}»: ${dr[1]}`; toast('Ejercicio cargado. Graba cuando quieras.'); }
 function renderKB(){
   const all=allKB(), f=state.kcat||'all', L=all.filter(k=>f==='all'||k.c===f||(f==='new'&&k.via)).sort((a,b)=>(b.at||0)-(a.at||0));
   $('#v-kb').innerHTML=`<h1>Técnicas</h1><p class="mut">La base que usa tu coach: qué hacer, qué consigues y de dónde sale. ${all.length} técnicas${(mem.kb||[]).length?`, ${(mem.kb||[]).length} añadidas por actualización`:''}.</p>
+    <h2 style="margin-top:18px">Ejercicios de hoy</h2><p class="mut sm">Tres al día, cambian cada mañana. El primero ataca tu error más repetido cuando hay patrón. ${drillStreak()?'Racha de práctica: '+drillStreak()+' día(s).':''}</p>
+    <div class="card">${todayDrills().map(id=>{ const k=all.find(x=>x.id===id), dn=drillDone(id); return `<div class="kb"><span class="tag">${KCAT[k.c]}</span>${dn?'<span class="ev s">hecho hoy</span>':''}<b>${esc(k.t)}</b>${esc(DRILL[id][1])}<div class="mut sm" style="margin-top:4px">Modo ${MODES[DRILL[id][0]]}</div><div class="row" style="margin-top:10px"><button class="btn sm" data-pr="${id}">Practicar ahora</button><button class="btn sec sm" data-dn="${id}">${dn?'Desmarcar':'Marcar hecho'}</button></div></div>`; }).join('')}</div>
+    <h2>Todas las técnicas</h2>
     <div class="chips" id="kcats">${[['all','Todas'],...Object.entries(KCAT),['new','Nuevas']].map(([k,v])=>`<button class="chip ${f===k?'on':''}" data-k="${k}">${v}</button>`).join('')}</div>
-    <div class="card">${L.map(k=>`<div class="kb"><span class="tag">${KCAT[k.c]||''}</span><span class="ev ${k.e==='s'?'s':k.e==='d'?'d':k.e==='n'?'n':''}">${EV[k.e]||''}</span><b>${esc(k.t)}</b>${esc(k.d)}<div class="mut sm" style="margin-top:6px">${k.url?`<a href="${esc(k.url)}" target="_blank" rel="noopener" style="color:inherit">${esc(k.s||k.url)}</a>`:esc(k.s)}</div></div>`).join('')||'<p class="mut">Nada en esta categoría.</p>'}</div>
+    <div class="card">${L.map(k=>`<div class="kb"><span class="tag">${KCAT[k.c]||''}</span><span class="ev ${k.e==='s'?'s':k.e==='d'?'d':k.e==='n'?'n':''}">${EV[k.e]||''}</span><b>${esc(k.t)}</b>${esc(k.d)}${DRILL[k.id]?`<div class="why"><span class="mut">Ejercicio · </span>${esc(DRILL[k.id][1])} <a href="#" data-pr="${k.id}" style="color:var(--acc);text-decoration:none;white-space:nowrap">Practicar →</a></div>`:''}<div class="mut sm" style="margin-top:6px">${k.url?`<a href="${esc(k.url)}" target="_blank" rel="noopener" style="color:inherit">${esc(k.s||k.url)}</a>`:esc(k.s)}</div></div>`).join('')||'<p class="mut">Nada en esta categoría.</p>'}</div>
     <button class="btn sec" id="b-upd">Buscar técnicas nuevas ahora</button><p class="sm mut" style="margin-top:8px">Al abrir la app se lee <code>kb.json</code> del servidor y, una vez por semana, el cerebro IA propone novedades. Lo que añade la IA queda marcado como «sin verificar» hasta que lo compruebes.</p>`;
+  document.querySelectorAll('#v-kb [data-pr]').forEach(e=>e.onclick=ev=>{ ev.preventDefault(); practice(e.dataset.pr); });
+  document.querySelectorAll('#v-kb [data-dn]').forEach(e=>e.onclick=()=>{ markDrill(e.dataset.dn,!drillDone(e.dataset.dn)); renderKB(); });
   $('#kcats').onclick=e=>{ const b=e.target.closest('.chip'); if(b){ state.kcat=b.dataset.k; renderKB(); } };
   $('#b-upd').onclick=async e=>{ e.target.disabled=true; e.target.textContent='Buscando…'; const n=await checkUpdates(true); if(!n) toast(brainOn()&&brain().p!=='local'?'Nada nuevo por ahora':'Sin novedades. Activa un cerebro IA en la nube para buscar.'); renderKB(); };
 }
 function brainHTML(){ const b=brain(); return `<h3>Cerebro IA</h3><div class="card"><select id="br-p"><option value="none">Sin IA (solo métricas + copiar para Claude)</option>${Object.entries(BR).map(([k,v])=>`<option value="${k}">${v.name}</option>`).join('')}</select>
-  <div id="br-f" class="${b.p==='none'||!b.p?'hide':''}"><div style="height:10px"></div><input type="text" id="br-key" placeholder="Clave API (se guarda solo en este navegador)" autocomplete="off" class="${b.p==='local'?'hide':''}"><div style="height:8px"></div><input type="text" id="br-model" placeholder="modelo"><div style="height:8px"></div><input type="text" id="br-base" placeholder="URL base" class="${b.p==='compat'?'':'hide'}">
+  <div id="br-f" class="${b.p==='none'||!b.p?'hide':''}"><div style="height:10px"></div><input type="password" id="br-key" placeholder="Clave API (se guarda solo en este navegador)" autocomplete="off" class="${b.p==='local'?'hide':''}"><div style="height:8px"></div><input type="text" id="br-model" placeholder="modelo"><div style="height:8px"></div><input type="text" id="br-base" placeholder="URL base" class="${b.p==='compat'?'':'hide'}">
   <p class="sm mut" style="margin:10px 0 0" id="br-help"></p><div style="height:10px"></div><button class="btn sec sm" id="br-test">Probar conexión</button> <span class="sm mut" id="br-st"></span></div></div>`; }
-function wireBrain(){ const b=brain(), H={gemini:'Clave gratuita en aistudio.google.com (sin tarjeta). Es el único que escucha tu audio para corregir pronunciación. El nivel gratuito tiene límite diario de peticiones; si lo agotas, cambia el modelo a gemini-3.5-flash-lite. Google puede usar lo que envías en el nivel gratuito para mejorar sus productos.',compat:'Clave gratuita en console.groq.com. Rápido y con límites amplios, pero solo lee texto (no escucha la pronunciación). Vale cualquier API compatible con OpenAI, incluido Ollama en tu ordenador.',local:'Todo en tu dispositivo, sin enviar nada. Necesita Chrome o Edge de escritorio con WebGPU y descarga 1–3 GB. Es el menos capaz de los tres.'};
+function wireBrain(){ const b=brain(), H={gemini:'Clave gratuita en aistudio.google.com (sin tarjeta). Es el único que escucha tu audio para corregir pronunciación. El nivel gratuito tiene límite diario y a veces el modelo está saturado: la app reintenta y cambia sola a otro modelo Flash disponible. Google puede usar lo que envías en el nivel gratuito para mejorar sus productos.',compat:'Clave gratuita en console.groq.com. Rápido y con límites amplios, pero solo lee texto (no escucha la pronunciación). Vale cualquier API compatible con OpenAI, incluido Ollama en tu ordenador.',local:'Todo en tu dispositivo, sin enviar nada. Necesita Chrome o Edge de escritorio con WebGPU y descarga 1–3 GB. Es el menos capaz de los tres.'};
   $('#br-p').value=b.p||'none'; $('#br-key').value=b.key||''; $('#br-model').value=b.model||BR[b.p]?.model||''; $('#br-base').value=b.base||BR.compat.base; $('#br-help').textContent=H[b.p]||'';
   const save=()=>{ const p=$('#br-p').value; mem.brain={p,key:$('#br-key').value.trim(),model:$('#br-model').value.trim(),base:$('#br-base').value.trim()}; DB.save(); };
   $('#br-p').onchange=()=>{ const p=$('#br-p').value; mem.brain={p,key:'',model:BR[p]?.model||'',base:BR.compat.base}; DB.save(); renderProfile(); };
   ['br-key','br-model','br-base'].forEach(i=>$('#'+i).onchange=save);
-  $('#br-test').onclick=async()=>{ save(); const st=$('#br-st'); st.textContent='Probando…'; try{ const t=await ai({messages:[{role:'user',content:'Responde solo: OK'}],status:x=>st.textContent=x}); st.textContent=t?'Conectado ✓':'Respuesta vacía'; }catch(e){ st.textContent='Error: '+e.message; } };
+  $('#br-test').onclick=async()=>{ save(); const st=$('#br-st'); st.textContent='Probando…'; try{ const t=await ai({messages:[{role:'user',content:'Responde solo: OK'}],status:x=>st.textContent=x}); if(t&&brain().p==='gemini'&&ai.used&&ai.used!==brain().model){ mem.brain.model=ai.used; DB.save(); $('#br-model').value=ai.used; st.textContent='Conectado ✓ con '+ai.used+' (el modelo anterior estaba saturado)'; } else st.textContent=t?'Conectado ✓':'Respuesta vacía'; }catch(e){ st.textContent='Error: '+e.message; } };
 }
 </script>
 </body>
