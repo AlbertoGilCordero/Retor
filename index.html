@@ -163,6 +163,8 @@ details summary{cursor:pointer;color:var(--mut);font-style:italic}
           <option value="Xenova/whisper-base">Base — equilibrado (~80 MB)</option>
           <option value="Xenova/whisper-small">Small — el más preciso, lento en móvil (~250 MB)</option>
         </select>
+        <h3>Análisis no verbal</h3>
+        <select id="nvmode"><option value="full">Completo: cara, postura, manos, gestos y emoción facial</option><option value="fast">Rápido: solo cara y postura (móviles lentos)</option></select>
         <label class="sm" style="display:flex;gap:8px;margin-top:10px;align-items:center"><input type="checkbox" id="wgpu"> Acelerar con WebGPU si está disponible (experimental)</label>
         <p class="mut sm" style="margin-top:10px">Todo se procesa en tu dispositivo. Los modelos se descargan una vez y quedan en caché. El vídeo no sale de aquí ni se guarda; solo se guardan métricas y transcripción.</p>
       </div>
@@ -202,7 +204,8 @@ const V = { mp:'0.10.14', tf:'3.8.1', llm:'0.2.89' };
 const MP = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${V.mp}`;
 const MODELS = {
   face:'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',
-  pose:'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task'
+  pose:'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',
+  gest:'https://storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/1/gesture_recognizer.task'
 };
 const TYPES = { entrevista:'Entrevista', pitch:'Pitch', presentacion:'Presentación', redes:'Vídeo para redes', negociacion:'Negociación', libre:'Libre' };
 const LANGS = { es:['Español','spanish'], en:['English','english'], fr:['Français','french'] };
@@ -250,6 +253,13 @@ const CAT = {
   weak_close:['mensaje','Cierre que se desinfla','Escribe y memoriza la última frase: conclusión o petición concreta. Dila, sonríe y calla.'],
   pron:['pron','Pronunciación que resta claridad','Shadowing: escucha cada palabra marcada, repítela 5 veces exagerando el sonido y regraba la frase entera.'],
   recall:['mensaje','No te sabías el texto','Memoriza por bloques: idea clave de cada párrafo + primera frase literal. Recita de pie y sin mirar antes de grabar.'],
+  point:['cuerpo','Señalas con el dedo','Cambia el índice por la palma abierta hacia arriba o por la mano entera de canto: marca igual y no acusa.'],
+  fists:['cuerpo','Puños cerrados','Posición base con las manos abiertas y relajadas; abre la palma cada vez que enumeres.'],
+  crossed:['cuerpo','Brazos cruzados','Descruza y deja las manos a la altura del ombligo, visibles. Si no sabes qué hacer con ellas, campanario suave.'],
+  shrug:['cuerpo','Hombros encogidos','Antes de grabar: sube los hombros a las orejas 3 segundos y suéltalos de golpe, dos veces. Exhala largo al empezar.'],
+  reading:['mirada','Estás leyendo','Quita el guion de la pantalla. Deja solo 3 palabras clave junto a la lente y cuenta el resto de memoria.'],
+  tense_face:['expresion','Cara tensa','Antes de grabar, abre mucho la boca y los ojos y relaja el entrecejo; empieza la primera frase sonriendo.'],
+  clasp:['cuerpo','Manos atadas','Sepáralas: una idea, un gesto. Practica enumerando tres puntos con los dedos y volviendo a la posición base.'],
   duration:['mensaje','Duración fuera de objetivo','Recorta o amplía por bloques: apunta los segundos de cada bloque y ajusta el más largo.']
 };
 
@@ -294,7 +304,7 @@ const KB=[
 ];
 const DRILL={"mirror": ["conv", "En cada turno, antes de responder, repite como pregunta las últimas 2–3 palabras del interlocutor y deja 2 segundos de silencio."], "label": ["libre", "Graba 1 minuto respondiendo a la objeción «es demasiado caro»: abre con dos etiquetas («Parece que…», «Da la impresión de que…») antes de argumentar nada."], "calibrated": ["libre", "Piensa en una negociación real pendiente y graba cinco preguntas «¿cómo…?» o «¿qué…?», con 3 segundos de pausa tras cada una."], "audit": ["libre", "Graba 45 segundos abriendo una petición difícil con tres «vas a pensar que…» antes de pedir lo que quieres."], "bcsm": ["conv", "No propongas nada hasta el cuarto turno: en los tres primeros solo resume lo que te dicen, etiqueta la emoción y pregunta."], "anchor": ["libre", "Graba tu petición de salario o de precio: di la cifra primero, da una sola justificación y calla. Sin rangos ni «más o menos»."], "batna": ["libre", "Graba 1 minuto explicando qué harás si no hay acuerdo y qué interés real crees que tiene la otra parte."], "silence": ["libre", "Graba 1 minuto con cinco pausas deliberadas de 2–3 segundos tras cada idea clave. Objetivo: 15–25 % de tiempo en pausa y cero muletillas."], "scharff": ["libre", "Graba 1 minuto abordando un tema delicado solo con afirmaciones («Imagino que el presupuesto ya está cerrado…»), sin una sola pregunta directa."], "elicit": ["libre", "Graba 1 minuto contando una situación real en la que alguien te sacó información con un halago o un dato erróneo, y cómo responderías hoy."], "cialdini": ["libre", "Graba un pitch de 60 segundos que use prueba social y autoridad, cada una con un dato concreto."], "because": ["libre", "Graba tres peticiones de 15 segundos, cada una con su «porque» concreto."], "loss": ["libre", "Graba el mismo argumento dos veces seguidas, 30 segundos cada una: primero en ganancias y luego en pérdidas."], "warmth": ["libre", "Graba los primeros 30 segundos de una presentación: sonrisa real, saludo cercano y una frase sobre ellos antes de hablar de ti. Objetivo: más del 20 % del tiempo sonriendo."], "thin": ["libre", "Graba tu arranque de 30 segundos cinco veces seguidas en un mismo vídeo. Compara la primera con la última."], "clt": ["libre", "Graba 90 segundos sobre tu proyecto con una metáfora, un contraste («no es X, es Y») y una lista de tres."], "powerless": ["libre", "Graba 1 minuto sobre un logro tuyo con cero muletillas y cero «creo que» o «un poco». Repite hasta que el contador marque 0."], "concrete": ["libre", "Graba 1 minuto sobre tu experiencia con al menos cuatro cifras verificables."], "pyramid": ["improv", "Da la conclusión en la primera frase y sostenla con exactamente tres argumentos."], "star": ["libre", "Graba una respuesta de 90 segundos a «háblame de un conflicto»: como máximo 15 segundos de situación y un resultado con número."], "monroe": ["libre", "Graba un pitch de 2 minutos con los cinco pasos (atención, necesidad, solución, visualización, acción), con una pausa clara entre cada uno."], "primacy": ["libre", "Graba 1 minuto en el que la primera y la última frase digan el mismo mensaje clave con palabras distintas."], "three": ["improv", "Anuncia al empezar «tres cosas» y estructura todo el discurso sobre ellas."], "rate": ["libre", "Graba 1 minuto alternando velocidades: ágil en el relato y lento en la frase clave. Objetivo: quedar dentro del rango ideal de palabras por minuto."], "pitchlow": ["libre", "Graba diez afirmaciones cortas terminando cada una hacia abajo. Ninguna debe sonar a pregunta."], "charisma_voice": ["memo", "Recita el discurso exagerando la entonación. Objetivo: variación de tono por encima de ±3 semitonos."], "dj": ["libre", "Graba 30 segundos diciendo un «no» difícil con voz grave, lenta y descendente."], "gaze": ["libre", "Graba 1 minuto mirando solo a la lente. Objetivo: más del 85 % de mirada a cámara."], "gesture": ["libre", "Graba 1 minuto en plano medio enumerando tres ideas con las manos a la altura del pecho. Objetivo: manos visibles más del 50 % del tiempo."], "pacify": ["conv", "Mantén las manos en posición base durante toda la conversación. Objetivo: cero toques de cara."], "steeple": ["libre", "Graba 45 segundos defendiendo una opinión: manos en campanario al afirmar y palmas visibles al invitar."], "power": ["libre", "Antes de grabar, pasa 1 minuto de pie con postura abierta y respiración lenta. Graba 45 segundos y compara tu arranque con el de una sesión anterior."], "mehrabian": ["libre", "Graba 45 segundos explicando a un amigo por qué «el 93 % es no verbal» es falso, con conclusión primero."], "lies": ["libre", "Graba 45 segundos explicando por qué no existe un gesto que delate al mentiroso, con un dato y un cierre claro."]};
 const VID={"mirror": "Chris Voss mirroring technique", "label": "Chris Voss labeling emotions negotiation", "calibrated": "Chris Voss calibrated questions", "audit": "Chris Voss accusation audit", "bcsm": "FBI behavioral change stairway model", "anchor": "anchoring negotiation first offer", "batna": "BATNA Getting to Yes explained", "silence": "power of silence in negotiation", "scharff": "Scharff technique interrogation", "elicit": "elicitation techniques intelligence", "cialdini": "Cialdini principles of persuasion", "because": "Ellen Langer copy machine study because", "loss": "loss aversion framing persuasion", "warmth": "warmth and competence first impressions", "thin": "thin slicing first impressions", "clt": "John Antonakis charisma tactics", "powerless": "stop filler words hedging confident speech", "concrete": "Made to Stick concrete ideas", "pyramid": "Minto pyramid principle BLUF communication", "star": "STAR method interview answer example", "monroe": "Monroe's motivated sequence example", "primacy": "primacy recency effect public speaking", "three": "rule of three public speaking", "rate": "speaking pace public speaking", "pitchlow": "downward inflection vocal authority", "charisma_voice": "vocal variety exercises public speaking", "dj": "Chris Voss late night FM DJ voice", "gaze": "eye contact camera presentation tips", "gesture": "hand gestures public speaking research", "pacify": "Joe Navarro pacifying behaviors", "steeple": "Joe Navarro steepling hands confidence", "power": "power posing replication Amy Cuddy", "mehrabian": "Mehrabian 7 38 55 myth", "lies": "detect lies body language research"};
-const FKB={fillers:'powerless',hedging:'powerless',monotone:'charisma_voice',flat_volume:'charisma_voice',eye:'gaze',weak_open:'thin',weak_close:'primacy',no_data:'concrete',no_pauses:'silence',face_touch:'pacify',pace_fast:'rate',long_sent:'pyramid',no_smile:'warmth',hands_hidden:'gesture',flat_face:'warmth'};
+const FKB={point:'steeple',fists:'pacify',crossed:'warmth',shrug:'pacify',reading:'gaze',tense_face:'warmth',clasp:'gesture',fillers:'powerless',hedging:'powerless',monotone:'charisma_voice',flat_volume:'charisma_voice',eye:'gaze',weak_open:'thin',weak_close:'primacy',no_data:'concrete',no_pauses:'silence',face_touch:'pacify',pace_fast:'rate',long_sent:'pyramid',no_smile:'warmth',hands_hidden:'gesture',flat_face:'warmth'};
 const KTYPE={entrevista:['star','pyramid','concrete','powerless','warmth','thin','primacy','audit','charisma_voice','gaze','gesture','pacify'],pitch:['monroe','clt','loss','cialdini','concrete','primacy','three','anchor','thin','charisma_voice','gaze','gesture'],presentacion:['pyramid','clt','three','primacy','concrete','silence','charisma_voice','gaze','gesture','rate'],redes:['thin','clt','concrete','three','rate','charisma_voice','gaze','warmth'],negociacion:['mirror','label','calibrated','audit','anchor','batna','silence','bcsm','loss','dj','scharff','cialdini'],libre:['pyramid','clt','powerless','concrete','primacy','silence','charisma_voice','gaze','gesture','warmth']};
 
 /* ============ Bancos sin IA ============ */
@@ -512,7 +522,7 @@ function analyzeText(segs,lang,durMin){
     weakOpen:L.weakOpen.test(sents[0]||''), weakClose:L.weakClose.test(sents.at(-1)||''), first:sents[0]||'', last:sents.at(-1)||'', marks };
 }
 
-/* ============ Visión (MediaPipe Face + Pose) ============ */
+/* ============ Visión (MediaPipe: cara, postura, manos y gestos · face-api: emoción) ============ */
 let mp=null;
 async function loadVision(onp){
   if(mp) return mp;
@@ -522,22 +532,43 @@ async function loadVision(onp){
   const mk=async(Cls,opts,url)=>{ try{ return await Cls.createFromOptions(fs,{baseOptions:{modelAssetPath:url,delegate:'GPU'},...opts}); }catch(e){ return await Cls.createFromOptions(fs,{baseOptions:{modelAssetPath:url,delegate:'CPU'},...opts}); } };
   const face=await mk(lib.FaceLandmarker,{runningMode:'VIDEO',numFaces:1,outputFaceBlendshapes:true,outputFacialTransformationMatrixes:true},MODELS.face);
   const pose=await mk(lib.PoseLandmarker,{runningMode:'VIDEO',numPoses:1},MODELS.pose);
-  return mp={face,pose};
+  return mp={face,pose,lib,fs,mk};
 }
+const FA=window.__FA||'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15';
+async function loadExtras(onp){
+  if(mp.gest===undefined){ onp('modelo de manos y gestos'); try{ mp.gest=await mp.mk(mp.lib.GestureRecognizer,{runningMode:'VIDEO',numHands:2},MODELS.gest); }catch(e){ mp.gest=null; } }
+  if(mp.fa===undefined){ onp('modelo de emoción facial'); try{ const fa=await import(FA+'/dist/face-api.esm.js'); if(fa.tf&&fa.tf.ready) await fa.tf.ready(); await fa.nets.tinyFaceDetector.loadFromUri(FA+'/model'); await fa.nets.faceExpressionNet.loadFromUri(FA+'/model'); mp.faOpt=new fa.TinyFaceDetectorOptions({inputSize:224,scoreThreshold:.35}); mp.fa=fa; }catch(e){ mp.fa=null; } }
+}
+const EMO=['neutral','happy','sad','angry','fearful','disgusted','surprised'], EMON={neutral:'neutra',happy:'alegre',sad:'triste',angry:'enfadada',fearful:'temerosa',disgusted:'de desagrado',surprised:'sorprendida'};
+// Rasgos de manos a partir del reconocedor de gestos de MediaPipe (21 puntos por mano)
+function handFrame(G,lm,pl,ar){ const o={}, H=(G&&G.landmarks)||[]; if(!H.length) return o;
+  const D=(a,b)=>Math.hypot(a.x-b.x,(a.y-b.y)*ar), cat=i=>{ const g=G.gestures&&G.gestures[i]&&G.gestures[i][0]; return g&&g.score>.5?g.categoryName:'None'; };
+  o.hn=H.length; o.hg=H.map((_,i)=>cat(i)); const sz=H.map(h=>D(h[0],h[9])||.001);
+  if(H.length>=2){ const m=(sz[0]+sz[1])/2, td=mean([4,8,12,16,20].map(k=>D(H[0][k],H[1][k])))/m, wd=D(H[0][0],H[1][0])/m, cd=D(H[0][9],H[1][9])/m;
+    if(td<.5&&wd>td*1.5) o.steeple=1; else if(cd<1.3) o.clasp=1; }
+  if(pl){ const A=pl[11],B=pl[12], sw=D(A,B)||.001, sy=(A.y+B.y)/2, xl=Math.min(A.x,B.x), xr=Math.max(A.x,B.x);
+    o.hz=H.map(h=>{ const c=h[9]; return c.y<sy-.05*sw/ar?'alto':c.y<sy+1.15*sw/ar?'pecho':'bajo'; });
+    o.wide=H.some(h=>h[9].x<xl-.15*sw||h[9].x>xr+.15*sw)?1:0; }
+  if(lm){ const fh=D(lm[10],lm[152])||.001, Z=[['nariz',lm[1]],['boca',lm[13]],['barbilla',lm[152]],['frente',lm[10]],['mejilla u oreja',lm[234]],['mejilla u oreja',lm[454]]]; let bd=.15*fh, bz=null;
+    H.forEach(h=>{ [4,8,12,16,20].forEach(k=>Z.forEach(([n,q])=>{ const d=D(h[k],q); if(d<bd){ bd=d; bz=n; } }));
+      if(!bz){ const c=h[9], ch=lm[152], top=lm[10]; if(Math.abs(c.x-ch.x)<.5*fh&&c.y>ch.y&&c.y<ch.y+.55*fh/ar) bz='cuello'; else if([8,12,16].some(k=>Math.abs(h[k].x-top.x)<.55*fh&&h[k].y<top.y&&h[k].y>top.y-.3*fh/ar)) bz='pelo'; } });
+    if(bz) o.tz=bz; }
+  return o; }
 function seek(v,t){ return new Promise(res=>{ let done=false; const f=()=>{ if(done)return; done=true; v.removeEventListener('seeked',f); res(); }; v.addEventListener('seeked',f); v.currentTime=t; setTimeout(f,2000); }); }
 async function fixDuration(v){ if(isFinite(v.duration)&&v.duration>0) return; await new Promise(res=>{ const f=()=>{ if(isFinite(v.duration)){ v.removeEventListener('durationchange',f); res(); } }; v.addEventListener('durationchange',f); v.currentTime=1e101; setTimeout(res,4000); }); v.currentTime=0; await sleep(100); }
 let tsBase=0;
 async function analyzeVideo(v,dur,onp){
-  const {face,pose}=await loadVision(onp);
+  const {face,pose}=await loadVision(onp); const full=(mem.settings.nv||'full')==='full'; if(full) await loadExtras(onp);
+  const mods={hands:!!(full&&mp.gest),emo:!!(full&&mp.fa)}, ar0=()=>cv.height/cv.width;
   const step=Math.max(.25,dur/800), W=480, cv=document.createElement('canvas'), cx=cv.getContext('2d',{willReadFrequently:false});
   cv.width=W; cv.height=Math.max(2,Math.round(W*v.videoHeight/v.videoWidth));
   const fr=[]; let prev=null;
   for(let t=0,i=0;t<dur;t+=step,i++){
     await seek(v,Math.min(t,dur-.05)); cx.drawImage(v,0,0,cv.width,cv.height);
-    const ts=(tsBase+=40), o={t};
+    const ts=(tsBase+=40), o={t}; let LM=null, PL=null;
     const f=face.detectForVideo(cv,ts);
     if(f.faceLandmarks&&f.faceLandmarks[0]){
-      const lm=f.faceLandmarks[0]; let x0=1,x1=0,y0=1,y1=0; for(const p of lm){ if(p.x<x0)x0=p.x; if(p.x>x1)x1=p.x; if(p.y<y0)y0=p.y; if(p.y>y1)y1=p.y; }
+      const lm=LM=f.faceLandmarks[0]; let x0=1,x1=0,y0=1,y1=0; for(const p of lm){ if(p.x<x0)x0=p.x; if(p.x>x1)x1=p.x; if(p.y<y0)y0=p.y; if(p.y>y1)y1=p.y; }
       o.face=1; o.fh=y1-y0; o.fx=(x0+x1)/2; o.fy=(y0+y1)/2;
       const b={}; (f.faceBlendshapes?.[0]?.categories||[]).forEach(c=>b[c.categoryName]=c.score);
       const m=f.facialTransformationMatrixes?.[0]?.data;
@@ -545,6 +576,8 @@ async function analyzeVideo(v,dur,onp){
       const hz=((b.eyeLookOutLeft||0)-(b.eyeLookInLeft||0)+(b.eyeLookInRight||0)-(b.eyeLookOutRight||0))/2;
       const up=((b.eyeLookUpLeft||0)+(b.eyeLookUpRight||0))/2, dn=((b.eyeLookDownLeft||0)+(b.eyeLookDownRight||0))/2;
       o.away=(Math.abs(o.yaw||0)>20||Math.abs(o.pitch||0)>20||Math.abs(hz)>.45||up>.5||dn>.62)?1:0;
+      if(o.away) o.gd=dn>.62?'abajo':up>.5?'arriba':'lado';
+      o.brow=((b.browDownLeft||0)+(b.browDownRight||0))/2; o.press=((b.mouthPressLeft||0)+(b.mouthPressRight||0))/2;
       o.smile=((b.mouthSmileLeft||0)+(b.mouthSmileRight||0))/2;
       o.ex=[b.browInnerUp||0,((b.browOuterUpLeft||0)+(b.browOuterUpRight||0))/2,((b.browDownLeft||0)+(b.browDownRight||0))/2,o.smile,((b.eyeWideLeft||0)+(b.eyeWideRight||0))/2];
     }
@@ -556,14 +589,18 @@ async function analyzeVideo(v,dur,onp){
       const vis=k=>pl[k].visibility>.6&&pl[k].y<1&&pl[k].y>0&&pl[k].x>0&&pl[k].x<1;
       o.hands=(vis(15)||vis(16))?1:0;
       const ar=cv.height/cv.width, d=(a,b)=>Math.hypot(a.x-b.x,(a.y-b.y)*ar)/sw;
-      o.touch=[19,20,15,16].some(k=>vis(k)&&d(pl[k],pl[0])<.42)?1:0;
+      o.touch=[19,20,15,16].some(k=>vis(k)&&d(pl[k],pl[0])<.42)?1:0; PL=pl;
+      if(pl[7].visibility>.5&&pl[8].visibility>.5) o.neck=((A.y+B.y)/2-(pl[7].y+pl[8].y)/2)*ar/sw;
+      if(vis(15)&&vis(16)&&d(pl[15],pl[14])<.75&&d(pl[16],pl[13])<.75) o.cross=1;
       if(prev&&prev.pl){ let sp=0,n=0; [15,16].forEach(k=>{ if(vis(k)&&prev.vis[k]){ sp+=d(pl[k],prev.pl[k])/step; n++; } }); o.gs=n?sp/n:0; }
       prev={pl,vis:{15:vis(15),16:vis(16)}};
     } else prev=null;
+    if(mods.hands){ try{ const G=mp.gest.recognizeForVideo(cv,ts+2); Object.assign(o,handFrame(G,LM,PL,ar0())); if(o.hn){ o.hands=1; o.touch=o.tz?1:0; } }catch(e){} }
+    if(mods.emo&&o.face&&i%2===0){ try{ const r=await mp.fa.detectSingleFace(cv,mp.faOpt).withFaceExpressions(); if(r&&r.expressions) o.emo=EMO.map(k=>r.expressions[k]||0); }catch(e){} }
     fr.push(o);
     if(i%8===0){ onp(`${Math.round(100*t/dur)} %`); await sleep(0); }
   }
-  return summarizeVision(fr,step);
+  const R=summarizeVision(fr,step); R.nv=summarizeNV(fr,step,mods); if(mods.hands&&R.nv.touchEv) R.touches=R.nv.touchEv; return R;
 }
 function summarizeVision(fr,step){
   const F=fr.filter(o=>o.face), P=fr.filter(o=>o.pose), n=fr.length||1, R={frames:fr.length,step,strip:fr.map(o=>o.face?(o.away?2:1):0)};
@@ -582,6 +619,28 @@ function summarizeVision(fr,step){
   }
   return R;
 }
+
+function summarizeNV(fr,step,mods){ const nv={mods}, F=fr.filter(o=>o.face), P=fr.filter(o=>o.pose), Hn=fr.filter(o=>o.hn), n=fr.length||1, pc=(a,b)=>b?Math.round(100*a/b):0;
+  if(mods.hands){ const has=g=>Hn.filter(o=>o.hg.includes(g)).length, z={alto:0,pecho:0,bajo:0}; let zt=0; Hn.forEach(o=>(o.hz||[]).forEach(k=>{ z[k]++; zt++; }));
+    nv.hands={seen:pc(Hn.length,n),both:pc(Hn.filter(o=>o.hn>=2).length,n),open:pc(has('Open_Palm'),Hn.length),point:pc(has('Pointing_Up'),Hn.length),fist:pc(has('Closed_Fist'),Hn.length),steeple:pc(Hn.filter(o=>o.steeple).length,Hn.length),clasp:pc(Hn.filter(o=>o.clasp).length,Hn.length),wide:pc(Hn.filter(o=>o.wide).length,Hn.length),zone:zt?{alto:pc(z.alto,zt),pecho:pc(z.pecho,zt),bajo:pc(z.bajo,zt)}:null,n:Hn.length};
+    const ev=[]; let s=-1; fr.forEach((o,i)=>{ if(o.tz&&s<0) s=i; if((!o.tz||i===fr.length-1)&&s>=0){ const d=(i-s+(o.tz?1:0))*step; if(d>=.5) ev.push({t:fr[s].t,d,z:fr[s].tz}); s=-1; } });
+    nv.touchEv=ev; nv.touchZ={}; ev.forEach(e=>nv.touchZ[e.z]=(nv.touchZ[e.z]||0)+1); }
+  if(P.length>=5){ nv.cross=pc(P.filter(o=>o.cross).length,P.length); const nk=P.map(o=>o.neck).filter(x=>x!=null); if(nk.length>=5) nv.neck=Math.round(pct(nk,.5)*100)/100; }
+  if(F.length>=5){ const A=F.filter(o=>o.away); if(A.length>=4) nv.gaze={abajo:pc(A.filter(o=>o.gd==='abajo').length,A.length),lado:pc(A.filter(o=>o.gd==='lado').length,A.length),arriba:pc(A.filter(o=>o.gd==='arriba').length,A.length)};
+    nv.brow=pc(F.filter(o=>o.brow>.4).length,F.length); nv.press=pc(F.filter(o=>o.press>.4).length,F.length); }
+  const E=fr.filter(o=>o.emo); if(E.length>=4) nv.emo=EMO.map((k,i)=>({k,p:Math.round(100*mean(E.map(o=>o.emo[i])))})).filter(e=>e.p>=2).sort((a,b)=>b.p-a.p);
+  return nv; }
+function nvText(S){ const v=S.vis, nv=v&&v.nv, L=[]; if(!nv) return L; const h=nv.hands;
+  if(h){ if(h.n<3) L.push(`Manos: casi nunca entran en plano (${h.seen} % del tiempo).`); else{
+      L.push(`Manos: visibles el ${h.seen} % del tiempo (las dos a la vez, ${h.both} %).`);
+      L.push(`Forma de la mano cuando se ve: palma abierta ${h.open} %, índice señalando ${h.point} %, puño cerrado ${h.fist} %, campanario ${h.steeple} %, manos juntas o entrelazadas ${h.clasp} %.`);
+      if(h.zone) L.push(`Zona del gesto: a la altura del pecho ${h.zone.pecho} %, por encima de los hombros ${h.zone.alto} %, baja ${h.zone.bajo} %. Gestos más anchos que los hombros: ${h.wide} %.`); }
+    const tz=Object.entries(nv.touchZ||{}); L.push(tz.length?`Autocontacto: ${nv.touchEv.length} vez/veces (${tz.map(([z,k])=>z+' ×'+k).join(', ')}).`:'Autocontacto: ninguno detectado.'); }
+  if(nv.cross!=null) L.push(`Brazos cruzados: ${nv.cross} % del tiempo.`+(nv.neck!=null?` Hombros: ${nv.neck<.38?'encogidos, cerca de las orejas':'relajados'} (índice cuello ${nv.neck}).`:''));
+  if(nv.gaze) L.push(`Cuando no mira a cámara, mira hacia abajo el ${nv.gaze.abajo} %, a los lados el ${nv.gaze.lado} % y arriba el ${nv.gaze.arriba} %.`);
+  if(nv.brow!=null) L.push(`Tensión facial: ceño fruncido ${nv.brow} % del tiempo, labios apretados ${nv.press} %.`);
+  if(nv.emo) L.push(`Expresión emocional (clasificador facial): ${nv.emo.slice(0,4).map(e=>EMON[e.k]+' '+e.p+' %').join(', ')}.`);
+  return L; }
 
 /* ============ Diagnóstico ============ */
 function diagnose(S){
@@ -620,6 +679,14 @@ function diagnose(S){
       else if(v.gest>1.6){ add('hands_over',1,`Gesticulación muy alta y constante: el gesto deja de significar algo.`); c-=14; }
       if(v.touches.length>=2){ add('face_touch',v.touches.length>=4?2:1,`Te llevas la mano a la cara ${v.touches.length} veces (primera en ${mmss(v.touches[0].t)}).`); c-=Math.min(30,v.touches.length*7); }
     }
+    const nv=v.nv; if(nv){ const h=nv.hands;
+      if(h&&h.n>=8){ if(h.point>=12){ add('point',h.point>=30?2:1,`Señalas con el índice el ${h.point} % del tiempo que se te ven las manos. Se lee como acusación o sermón.`); c-=h.point>=30?16:9; }
+        if(h.fist>=22){ add('fists',1,`Puño cerrado el ${h.fist} % del tiempo: transmite tensión o agresividad contenida.`); c-=9; }
+        if(h.clasp>=55){ add('clasp',1,`Manos juntas o entrelazadas el ${h.clasp} % del tiempo: te quedas sin gestos que ilustren lo que dices.`); c-=8; } }
+      if(nv.cross>=15){ add('crossed',nv.cross>=40?2:1,`Brazos cruzados el ${nv.cross} % del vídeo. Para quien te ve es una barrera.`); c-=nv.cross>=40?18:10; }
+      if(nv.neck!=null&&nv.neck<.38){ add('shrug',1,`Hombros subidos hacia las orejas durante casi todo el vídeo: delata tensión.`); c-=8; }
+      if(nv.gaze&&nv.gaze.abajo>=60&&v.eye<75) add('reading',v.eye<55?3:2,`El ${nv.gaze.abajo} % de las veces que apartas la mirada es hacia abajo: se nota que lees.`);
+      if(nv.brow>=35||nv.press>=30||(nv.emo&&nv.emo.filter(e=>['sad','angry','fearful','disgusted'].includes(e.k)).reduce((a,e)=>a+e.p,0)>=35)){ add('tense_face',2,`Ceño fruncido el ${nv.brow} % del tiempo y labios apretados el ${nv.press} %${nv.emo?`; expresión dominante: ${EMON[nv.emo[0].k]}`:''}. Tu cara dice incomodidad aunque tus palabras no.`); sc.expresion=Math.max(0,sc.expresion-15); } }
     sc.cuerpo=Math.round(clamp(c));
   }
   if(x&&x.words>=15){
@@ -738,11 +805,12 @@ function buildPrompt(S,short){
   if(a&&a.ok) L.push(`- Ritmo: ${S.wpm?Math.round(S.wpm)+' palabras/min':'n/d'}; silencio ${Math.round(a.pauseRatio*100)} %; parones >2 s: ${a.longPauses.length}\n- Voz: variación de tono ±${r1(a.pitchSt)} semitonos; variación de volumen ${r1(a.volStd)} dB`);
   if(x) L.push(`- Muletillas: ${x.nFill} (${Object.entries(x.fillers).map(([w,k])=>w+'×'+k).join(', ')||'ninguna'})\n- Expresiones de duda: ${x.nHedge} (${Object.entries(x.hedges).map(([w,k])=>w+'×'+k).join(', ')||'ninguna'})\n- Frases: ${x.sentences}, media ${Math.round(x.avgSent)} palabras; cifras citadas: ${x.nums}`);
   if(v&&v.eye!=null) L.push(`- No verbal: contacto visual ${Math.round(v.eye)} %; sonrisa ${Math.round(v.smile)} % del tiempo; expresividad facial ${r1(v.expr*100)} (normal > 5); manos visibles ${v.hands!=null?Math.round(v.hands)+' %':'n/d'}; toques de cara ${v.touches?v.touches.length:'n/d'}; balanceo ${v.sway!=null?Math.round(v.sway*100)+' %':'n/d'}`);
+  { const T=nvText(S); if(T.length) L.push(`- Lenguaje corporal en detalle (medido por visión por computador en su dispositivo; tú no ves el vídeo, así que trata estos datos como tu observación directa):\n  · ${T.join('\n  · ')}`); }
   L.push(`- Fallos detectados: ${S.findings.map(f=>f.title).join('; ')||'ninguno'}`);
   if(rec.length) L.push(`\nERRORES RECURRENTES DE SU PERFIL (sesiones anteriores)\n- ${rec.join('\n- ')}`);
   L.push(`\nBASE DE TÉCNICAS (úsala: cuando recomiendes algo, nombra la técnica y su fuente, y di qué efecto consigue; no inventes estudios ni cites nada que no esté aquí o que no conozcas con certeza)\n${kbFor(S.ctx.type,short?6:14).map(k=>`- ${k.t}: ${k.d} [${k.s}; ${EV[k.e]||''}]`).join('\n')}`);
   L.push(`\nTRANSCRIPCIÓN\n"""\n${(x?x.full:'(sin transcripción)').split(' ').slice(0,short?700:1500).join(' ')}\n"""`);
-  L.push(`\nTU RESPUESTA (máx. 500 palabras, en este orden):\n#### Veredicto\nDos frases: ¿cumple el objetivo del contexto? ¿Convencería a esa audiencia?\n#### Mensaje\nEstructura, claridad, adecuación al contexto y a la audiencia, qué sobra y qué falta. Cita frases literales de la transcripción como prueba.\n#### Los 3 fallos que más daño hacen\nCada uno con evidencia (dato o cita) y cómo corregirlo. Si coincide con un error recurrente de su perfil, dilo.\n#### Técnicas que debería haber usado\n2–3 técnicas de la base, aplicadas a frases concretas suyas: «si aquí usas X, consigues Y».\n#### Reescritura\nReescribe la primera frase y la frase de cierre para que impacten.\n#### Plan para la próxima grabación\n3 ejercicios concretos y medibles.`);
+  L.push(`\nTU RESPUESTA (máx. 600 palabras, en este orden):\n#### Veredicto\nDos frases: ¿cumple el objetivo del contexto? ¿Convencería a esa audiencia?\n#### Mensaje\nEstructura, claridad, adecuación al contexto y a la audiencia, qué sobra y qué falta. Cita frases literales de la transcripción como prueba.\n#### Los 3 fallos que más daño hacen\nCada uno con evidencia (dato o cita) y cómo corregirlo. Si coincide con un error recurrente de su perfil, dilo.\n#### Lenguaje corporal\nInterpreta los datos no verbales: qué transmite cada patrón a esa audiencia y qué gesto concreto usar en su lugar.\n#### Técnicas que debería haber usado\n2–3 técnicas de la base, aplicadas a frases concretas suyas: «si aquí usas X, consigues Y».\n#### Reescritura\nReescribe la primera frase y la frase de cierre para que impacten.\n#### Plan para la próxima grabación\n3 ejercicios concretos y medibles.`);
   return L.join('\n');
 }
 function md(s){ return esc(s).replace(/^#{2,4}\s*(.+)$/gm,'<h4>$1</h4>').replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/^(?:[-*•]|\d+[.)])\s+(.+)$/gm,'<li>$1</li>').replace(/(<li>[\s\S]*?<\/li>)(?!\s*<li>)/g,'<ul>$1</ul>').replace(/\n{2,}/g,'<br><br>').replace(/\n/g,' '); }
@@ -819,7 +887,7 @@ function setStep(id,cls,note){ const e=$('#st-'+id); if(!e)return; if(cls)e.clas
 async function analyze(blob,game){
   game=game||{mode:'libre'};
   const ctx={type:state.type,text:$('#ctx').value.trim(),target:(game.mode==='memo'||game.mode==='improv')?game.mins*60:(+$('#target').value||null)}, lang=state.lang;
-  mem.settings={...mem.settings,type:state.type,lang,wmodel:$('#wmodel').value,wgpu:$('#wgpu').checked}; DB.save();
+  mem.settings={...mem.settings,type:state.type,lang,wmodel:$('#wmodel').value,wgpu:$('#wgpu').checked,nv:$('#nvmode').value}; DB.save();
   show('run');
   $('#steps').innerHTML=[['aud','Voz: tono, volumen y pausas'],['asr','Transcripción ('+LANGS[lang][0]+')'],['vis','Comunicación no verbal'],['dx','Diagnóstico']].map(([i,t])=>`<div class="step" id="st-${i}"><i></i>${t}<span></span></div>`).join('');
   $('#run-sub').textContent=blob.size>300e6?'Vídeo muy pesado: puede tardar o agotar la memoria. Ideal: menos de 5 minutos.':'No cierres la pestaña. La primera vez se descargan los modelos.';
@@ -891,6 +959,7 @@ function renderReport(S,fresh){
     ${fresh&&state.url&&v?`<h2>Repasa los momentos</h2><video class="pl" id="player" src="${state.url}" controls playsinline></video>`:''}
     ${(S.audio&&S.audio.env)||(v&&v.strip)?`<h3>Línea de tiempo · energía de voz y mirada</h3><canvas id="tl"></canvas><p class="sm mut" style="margin-top:6px">Barras: energía de la voz (huecos = pausas). Franja inferior: verde mirando a cámara, rojo fuera.</p>`:''}
     ${S.moments.length?`<div class="card">${S.moments.map(m=>`<div class="mom" data-t="${m.t}"><time>${mmss(m.t)}</time>${esc(m.txt)}</div>`).join('')}</div>`:''}
+    ${(T=>T.length?`<h2>Lenguaje corporal en detalle</h2><div class="card">${T.map(t=>`<div class="pw" style="display:block">${esc(t)}</div>`).join('')}<p class="sm mut" style="margin:10px 0 0">Medido en tu dispositivo con MediaPipe (cara, postura, manos y gestos) y face-api (emoción). Son estimaciones; el coach IA recibe estos mismos datos.</p></div>`:'')(nvText(S))}
     <h2>Métricas</h2><div class="grid">${K.join('')}</div>
     ${tx?`<h2>Transcripción</h2><p class="sm mut"><mark>muletillas</mark> · <mark class="h">dudas</mark>${fresh?' · toca una frase para ir a ese momento':''}</p><div class="card" style="line-height:1.75">${tx}</div>`:''}
     <div style="height:14px"></div><button class="btn sec" id="b-new">Nueva grabación con el mismo contexto</button>`;
@@ -1043,11 +1112,11 @@ const refreshTrain=()=>{ renderMode(); $('#streak').textContent=streakTxt(); };
 chips($('#modes'),MODES,'mode',modeLab,refreshTrain); chips($('#types'),TYPES,'type',v=>v,()=>{}); function paintLangs(){ chips($('#langs'),LANGS,'lang',v=>v[0],()=>{ state.game.topic=''; refreshTrain(); }); }
 paintLangs();
 refreshTrain();
-$('#wmodel').value=mem.settings.wmodel||'Xenova/whisper-base'; $('#wgpu').checked=!!mem.settings.wgpu;
+$('#nvmode').value=mem.settings.nv||'full'; $('#wmodel').value=mem.settings.wmodel||'Xenova/whisper-base'; $('#wgpu').checked=!!mem.settings.wgpu;
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>show(b.dataset.v));
 if(syncCode) pull().then(()=>checkUpdates(false)); else setTimeout(()=>checkUpdates(false),1500);
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'&&syncCode&&Date.now()-sync.at>60000) pull(); });
-window.__retor={route,cfgs,drillLang,capsHTML,mergeRemote,payload,newCode,todayDrills,drillText,dayNum,practice,markDrill,drillDone,analyzeAudio,analyzeText,summarizeVision,diagnose,planChunks,renderReport,persist,show,buildPrompt,align,riskWords,wavB64,addKB,parseJSON,mem:()=>mem,state};
+window.__retor={handFrame,summarizeNV,nvText,loadExtras,getMp:()=>mp,setMp:x=>mp=x,EMO,route,cfgs,drillLang,capsHTML,mergeRemote,payload,newCode,todayDrills,drillText,dayNum,practice,markDrill,drillDone,analyzeAudio,analyzeText,summarizeVision,diagnose,planChunks,renderReport,persist,show,buildPrompt,align,riskWords,wavB64,addKB,parseJSON,mem:()=>mem,state};
 function dayKey(d=new Date()){ return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); }
 function dayNum(){ return Math.floor((Date.now()-new Date().getTimezoneOffset()*6e4)/864e5); }
 const SRS=[1,3,7,14,30];
